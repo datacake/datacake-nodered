@@ -1,0 +1,28 @@
+<script type="text/javascript">
+    RED.nodes.registerType('datacake-configuration',{
+        category: 'config',
+        color: '#f29d00',
+        defaults: {
+            api_token: {value:"", required: true},
+            workspace_id: {value: "", required: true},
+        },
+        label: function() {
+            return "Workspace ID: " + this.workspace_id;
+        }
+    });
+</script>
+
+<script type="text/x-red" data-template-name="datacake-configuration">
+    <div class="form-row">
+        <label for="node-config-input-api_token"><i class="icon-tag"></i> API Token</label>
+        <input type="text" id="node-config-input-api_token" placeholder="API Token">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-workspace_id"><i class="icon-tag"></i> Workspace ID</label>
+        <input type="text" id="node-config-input-workspace_id" placeholder="Workspace ID">
+    </div>
+</script>
+
+<script type="text/x-red" data-help-name="datacake-configuration">
+    <p>A configuration node for Datacake's MQTT API</p>
+</script>

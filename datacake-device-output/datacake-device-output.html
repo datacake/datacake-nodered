@@ -1,0 +1,286 @@
+<script type="text/javascript">
+
+    function disableSelects(choice = false) {
+        if(!choice){
+            $('#node-input-field_id').val('');
+            $('#node-input-field_id_select').val('');
+            $('#node-input-field_id_select').empty();
+            $('#node-input-field_id_select').attr('disabled', 'disabled');
+            $('#node-input-device_id').val('');
+            $('#node-input-device_id_select').val('');
+            $('#node-input-device_id_select').empty();
+            $('#node-input-device_id_select').attr('disabled', 'disabled');
+        } else if(choice == "field") {
+            $('#node-input-field_id').val('');
+            $('#node-input-field_id_select').val('');
+            $('#node-input-field_id_select').empty();
+            $('#node-input-field_id_select').attr('disabled', 'disabled');
+        } else if(choice == "device"){
+            $('#node-input-device_id').val('');
+            $('#node-input-device_id_select').val('');
+            $('#node-input-device_id_select').empty();
+            $('#node-input-device_id_select').attr('disabled', 'disabled');
+        }
+    }
+
+    function enableSelects(choice = false) {
+        if(!choice){
+            $('#node-input-field_id_select').prop("disabled", false);
+            $('#node-input-device_id_select').prop("disabled", false);
+        } else if(choice == "field") {
+            $('#node-input-field_id_select').prop("disabled", false);
+        } else if(choice == "device"){
+            $('#node-input-device_id_select').prop("disabled", false);
+        }
+    }
+
+    function fillFieldSelects(api_token, workspace_id) {
+        let currentDeviceId = $('#node-input-device_id_select').val();
+        $('#node-input-device_id').val(currentDeviceId);
+        if(typeof(currentDeviceId) !== 'undefined' && currentDeviceId != null && currentDeviceId != ""){
+            let actualId = currentDeviceId.split("#")[0];
+            buildFieldSelects(actualId, api_token, workspace_id)
+        } else {
+            disableSelects('field');
+        }
+    }
+
+    function fillDeviceSelects(api_token, workspace_id){
+        $('#node-input-device_id_select').val('');
+        $('#node-input-device_id_select').empty();
+        let datacake_api_graphql = 'https://api.datacake.co/graphql/';
+        $.ajax({
+            method: "POST",
+            url: datacake_api_graphql,
+            contentType: "application/json",
+            headers: {
+              Authorization: "Token " + api_token
+            },
+            data: JSON.stringify({
+                    query: `query {
+                                organization(id:"${workspace_id}") {
+                                    id
+                                    products {
+                                        id
+                                        slug
+                                        name
+                                        measurementFields {
+                                            id
+                                            verboseFieldName
+                                            fieldName
+                                        }
+                                    }
+                                }
+                                allDevices(inWorkspace:"${workspace_id}") {
+                                    id
+                                    verboseName
+                                    product {
+                                        id
+                                        slug
+                                        measurementFields {
+                                            id
+                                            verboseFieldName
+                                            fieldName
+                                        }
+                                    }
+                                }
+                            }`,
+                    variables: {
+                        "entry": $('#entry').val()
+                    }
+            }),
+            success: function(result) {
+                if(result.data.allDevices.length){
+                    $('#node-input-device_id_select').empty();
+                    // build device select
+                    $('#node-input-device_id_select').append(
+                        $('<option>', {
+                            value: false,
+                            text: "-- Device auswählen --",
+                            selected: true,
+                        })
+                    );
+                    $.each(result.data.allDevices, function(i, item){
+                        $('#node-input-device_id_select').append(
+                            $('<option>', {
+                                value: item.id + '#' + item.product.slug,
+                                text: item.verboseName,
+                            })
+                        );
+                    });
+
+                    if($('#node-input-device_id').val()){
+                        // select init
+                        $('#node-input-device_id_select').val($('#node-input-device_id').val());
+                    }
+
+                    // fill fields
+                    fillFieldSelects(api_token, workspace_id);
+
+                    $('#node-input-device_id_select').change(function(e){
+                        fillFieldSelects(api_token, workspace_id);
+                    });
+                    enableSelects('device');
+                } else {
+                    disableSelects();
+                }
+
+            }
+        });
+    }
+
+    function buildFieldSelects(currentDeviceId, api_token, workspace_id){
+        $('#node-input-field_id_select').val('');
+        $('#node-input-field_id_select').empty();
+        let datacake_api_graphql = 'https://api.datacake.co/graphql/';
+        $.ajax({
+            method: "POST",
+            url: datacake_api_graphql,
+            contentType: "application/json",
+            headers: {
+              Authorization: "Token " + api_token
+            },
+            data: JSON.stringify({
+                    query: `query {
+                                organization(id:"${workspace_id}") {
+                                    id
+                                    products {
+                                        id
+                                        slug
+                                        name
+                                        measurementFields {
+                                            id
+                                            verboseFieldName
+                                            fieldName
+                                        }
+                                    }
+                                }
+                                allDevices(inWorkspace:"${workspace_id}") {
+                                    id
+                                    verboseName
+                                    product {
+                                        id
+                                        slug
+                                        measurementFields {
+                                            id
+                                            verboseFieldName
+                                            fieldName
+                                        }
+                                    }
+                                }
+                            }`,
+                    variables: {
+                        "entry": $('#entry').val()
+                    }
+            }),
+            success: function(result) {
+                //currentDeviceId
+                if(result.data.allDevices.length){
+                    var result = $.grep(result.data.allDevices, function(e){ return e.id == currentDeviceId; });
+                    // build device select
+                    if (result.length !== 0) {
+                        $('#node-input-field_id_select').append(
+                            $('<option>', {
+                                value: false,
+                                text: "-- Feld auswählen --",
+                                selected: true,
+                            })
+                        );
+                        $.each(result[0].product.measurementFields, function(i, item){
+                            $('#node-input-field_id_select').append(
+                                $('<option>', {
+                                    value: item.fieldName,
+                                    text: item.verboseFieldName
+                                })
+                            );
+                        });
+                    }
+
+                    if($('#node-input-field_id').val()){
+                        $('#node-input-field_id_select').val($('#node-input-field_id').val());
+                    }
+
+                    $('#node-input-field_id_select').change(function(e){
+                        $('#node-input-field_id').val($('#node-input-field_id_select').val());
+                    });
+                    enableSelects('field');
+                } else {
+                    disableSelects('field');
+                }
+
+            }
+        });
+    }
+
+    RED.nodes.registerType('datacake-device-output',{
+        category: 'Datacake',
+        color: '#F29D00',
+        defaults: {
+            name: {value:""},
+            datacake_configuration: {value:"", type:"datacake-configuration", required: true},
+            device_id: {value:"", required: true},
+            field_id: {value:"", required: true},
+            product_slug: {value: "", required: false}
+        },
+        inputs: 1,
+        outputs: 0,
+        icon: "datacake.png",
+        label: function() {
+            return this.name || "Datacake: Device Output";
+        },
+        oneditprepare: function(){
+            $('#node-input-datacake_configuration').on('change', function(){
+                var hasConfiguration = false;
+                let thisConfig = $(this).val();
+
+                if(thisConfig != ""){
+                    var datacake_configuration = RED.nodes.node(thisConfig);
+                    if(datacake_configuration && datacake_configuration.api_token && datacake_configuration.workspace_id){
+                        hasConfiguration = true;
+                    }
+                }
+                if(!hasConfiguration) {
+                    // disable inputs
+                    disableSelects();
+                    // show error message
+                } else {
+                    fillDeviceSelects(datacake_configuration.api_token, datacake_configuration.workspace_id);
+                }
+
+            } );
+
+        }
+    });
+</script>
+
+<script type="text/x-red" data-template-name="datacake-device-output">
+    <div class="form-row">
+        <label for="node-input-name"><i class="icon-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-datacake_configuration"><i class="icon-tag"></i> Datacake Configuration</label>
+        <input type="text" id="node-input-datacake_configuration" placeholder="Datacake Configuration">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-device_id"><i class="icon-tag"></i> Device</label>
+        <input type="hidden" id="node-input-device_id" placeholder="Device ID" required>
+        <select id="node-input-device_id_select">
+            <option value=""></option>
+        </select>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-field_id"><i class="icon-tag"></i> Field</label>
+        <input type="hidden" id="node-input-field_id" placeholder="Field ID" required>
+        <select id="node-input-field_id_select">
+            <option value=""></option>
+        </select>
+    </div>
+</script>
+
+<script type="text/x-red" data-help-name="datacake-device-output">
+    <p>A datacake output node to send values to Datacake.</p>
+</script>
