@@ -19,10 +19,10 @@ module.exports = function(RED) {
             node.device_id = "";
             node.product_slug = "";
         }
-        node.field_id = config.field_id; 
+        node.field_id = config.field_id;         
         if(!node.datacake_configuration) {
             node.warn("Datacake - Device Input: No Configuration");
-            node.status({fill:"red",shape:"ring",text:"no configuration"});
+            node.status({fill:"red",shape:"ring",text:"no configuration"});            
         } else {
             node.log("Datacake - Device Input: Starting connection");
             node.log("Datacake - Device Input: Device ID: " + node.device_id);
@@ -52,14 +52,11 @@ module.exports = function(RED) {
 
 
             client.on('message', function (topic, message) {
-                console.log(message);
                 node.send(
                     {
-                        payload : {
-                            deviceId: node.device_id,
-                            fieldName: node.field_id,
-                            value: message.toString()
-                        }
+                        payload : message.toString(),
+                        deviceId: node.device_id,
+                        fieldName: node.field_id
                     }
                 );
 

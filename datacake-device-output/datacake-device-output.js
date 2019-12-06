@@ -69,16 +69,12 @@ module.exports = function(RED) {
 
                 if(hasConfiguration){
                     var topic = 'dtck-pub/' + product_slug + '/' + device_id + '/' + field_id;
-                    client.publish(topic, msg.payload.value);
-    
-                    if (err) {
-                        if (done) {
-                            done(err);
-                        } else {
-                            node.error(err, msg);
-                        }
+                    client.publish(topic, msg.payload.toString());
+
+                    if (done) {
+                        done();
                     }
-                    node.log("Datacake - Device Output: Verbindung erfolgreich.");
+                    node.log("Datacake - Device Output: Sent Data to " + topic);
                     node.status({fill:"green",shape:"dot",text:"connected"});
                 } else {
                     node.log("Datacake - Device Output: Konfiguration fehlerhaft.");
