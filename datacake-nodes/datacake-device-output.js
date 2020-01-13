@@ -8,6 +8,7 @@ module.exports = function(RED) {
     function DatacakeDeviceOutpuNode(config) {
         RED.nodes.createNode(this, config);
         var node = this;
+        var globalContext = this.context().global;
         // Retrieve the config node, where the device is configured
         node.datacake_configuration = RED.nodes.getNode(config.datacake_configuration);
         node.log("Datacake - Device Output: Starting Device Output");
@@ -31,12 +32,19 @@ module.exports = function(RED) {
             node.log("Datacake - Device Output: Product Slug " + node.product_slug);
             node.log("Datacake - Device Output: Field Name " + node.field_id);
 
-            var client  = mqtt.connect('mqtt://mqtt.datacake.co',
+            var globalVariable = 'mqtt_client' + node.datacake_configuration.workspace_id;
+
+            if(typeof(globalContext.get(globalVariable)) === 'undefined'){
+                var client = mqtt.connect('mqtt://mqtt.datacake.co',
                 {
                     port: 1883,
                     username: node.datacake_configuration.api_token,
                     password: node.datacake_configuration.api_token,
                 });
+                globalContext.set(globalVariable, client);
+            } else {
+                var client = globalContext.get(globalVariable);
+            }
 
             client.on('connect', function () {
                 node.connected = true;

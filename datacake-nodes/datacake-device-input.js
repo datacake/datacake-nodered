@@ -8,6 +8,7 @@ module.exports = function(RED) {
     function DatacakeDeviceInputNode(config) {
         RED.nodes.createNode(this, config);
         var node = this;
+        var globalContext = this.context().global;
         // Retrieve the config node, where the device is configured
         node.datacake_configuration = RED.nodes.getNode(config.datacake_configuration);
         node.log("Datacake - Device Input: Starting Device Input");
@@ -19,23 +20,29 @@ module.exports = function(RED) {
             node.device_id = "";
             node.product_slug = "";
         }
-        node.field_id = config.field_id;         
+        node.field_id = config.field_id;
         if(!node.datacake_configuration) {
             node.warn("Datacake - Device Input: No Configuration");
-            node.status({fill:"red",shape:"ring",text:"no configuration"});            
+            node.status({fill:"red",shape:"ring",text:"no configuration"});
         } else {
             node.log("Datacake - Device Input: Starting connection");
             node.log("Datacake - Device Input: Device ID: " + node.device_id);
             node.log("Datacake - Device Input: Product Slug " + node.product_slug);
             node.log("Datacake - Device Input: Field Name " + node.field_id);
 
-            var client  = mqtt.connect('mqtt://mqtt.datacake.co',
+            var globalVariable = 'mqtt_client' + node.datacake_configuration.workspace_id;
+
+            if(typeof(globalContext.get(globalVariable)) === 'undefined'){
+                var client = mqtt.connect('mqtt://mqtt.datacake.co',
                 {
                     port: 1883,
                     username: node.datacake_configuration.api_token,
                     password: node.datacake_configuration.api_token,
                 });
-
+                globalContext.set(globalVariable, client);
+            } else {
+                var client = globalContext.get(globalVariable);
+            }
 
             client.on('connect', function () {
                 var topic = 'dtck/' + node.product_slug + '/' + node.device_id + '/' + node.field_id;
@@ -45,6 +52,7 @@ module.exports = function(RED) {
                         node.status({fill:"red",shape:"ring",text:"disconnected"});
                     } else {
                         node.log("Datacake - Device Input: Verbindung erfolgreich.");
+                        node.log("Datacake - Device Input: Subscribe to " + topic );
                         node.status({fill:"green",shape:"dot",text:"connected"});
                     }
                 })
