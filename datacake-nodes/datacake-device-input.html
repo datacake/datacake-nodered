@@ -176,6 +176,7 @@
             success: function(result) {
                 //currentDeviceId
                 if(result.data.allDevices.length){
+                    $('#node-input-field_id_select').empty();
                     var result = $.grep(result.data.allDevices, function(e){ return e.id == currentDeviceId; });
                     // build device select
                     if (result.length !== 0) {
