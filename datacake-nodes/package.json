@@ -1,25 +1,25 @@
 {
-    "name" : "datacake-nodes",
-    "version": "1.0.0",
-    "description": "a collection of datacake nodes for node-red",
-    "scripts": {
-      "test": "echo \"Error: no test specified\" && exit 1"
-    },
-    "keywords": [
-      "datacake",
-      "node-red"
-    ],
-    "author": "datacake.de",
-    "license": "ISC",
-    "node-red": {
-      "nodes": {
-        "datacake-device-input": "datacake-device-input.js",
-        "datacake-configuration": "datacake-configuration.js",
-        "datacake-device-output": "datacake-device-output.js"
-      }
-    },
-    "dependencies": {
-        "is-utf8": "^0.2.1",
-        "mqtt": "^3.0.0"
+  "name": "datacake-nodes",
+  "version": "1.0.0",
+  "description": "a collection of datacake nodes for node-red",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "datacake",
+    "node-red"
+  ],
+  "author": "datacake.de",
+  "license": "ISC",
+  "node-red": {
+    "nodes": {
+      "datacake-device-input": "datacake-device-input.js",
+      "datacake-configuration": "datacake-configuration.js",
+      "datacake-device-output": "datacake-device-output.js"
     }
+  },
+  "dependencies": {
+    "is-utf8": "^0.2.1",
+    "mqtt": "^3.0.0"
+  }
 }

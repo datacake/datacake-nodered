@@ -1,7 +1,7 @@
 <script type="text/javascript">
 
     function disableSelects(choice = false) {
-        if(!choice){
+        if (!choice) {
             $('#node-input-field_id').val('');
             $('#node-input-field_id_select').val('');
             $('#node-input-field_id_select').empty();
@@ -10,12 +10,12 @@
             $('#node-input-device_id_select').val('');
             $('#node-input-device_id_select').empty();
             $('#node-input-device_id_select').attr('disabled', 'disabled');
-        } else if(choice == "field") {
+        } else if (choice == "field") {
             $('#node-input-field_id').val('');
             $('#node-input-field_id_select').val('');
             $('#node-input-field_id_select').empty();
             $('#node-input-field_id_select').attr('disabled', 'disabled');
-        } else if(choice == "device"){
+        } else if (choice == "device") {
             $('#node-input-device_id').val('');
             $('#node-input-device_id_select').val('');
             $('#node-input-device_id_select').empty();
@@ -24,12 +24,12 @@
     }
 
     function enableSelects(choice = false) {
-        if(!choice){
+        if (!choice) {
             $('#node-input-field_id_select').prop("disabled", false);
             $('#node-input-device_id_select').prop("disabled", false);
-        } else if(choice == "field") {
+        } else if (choice == "field") {
             $('#node-input-field_id_select').prop("disabled", false);
-        } else if(choice == "device"){
+        } else if (choice == "device") {
             $('#node-input-device_id_select').prop("disabled", false);
         }
     }
@@ -37,7 +37,7 @@
     function fillFieldSelects(api_token, workspace_id) {
         let currentDeviceId = $('#node-input-device_id_select').val();
         $('#node-input-device_id').val(currentDeviceId);
-        if(typeof(currentDeviceId) !== 'undefined' && currentDeviceId != null && currentDeviceId != ""){
+        if (typeof (currentDeviceId) !== 'undefined' && currentDeviceId != null && currentDeviceId != "") {
             let actualId = currentDeviceId.split("#")[0];
             buildFieldSelects(actualId, api_token, workspace_id)
         } else {
@@ -45,7 +45,7 @@
         }
     }
 
-    function fillDeviceSelects(api_token, workspace_id){
+    function fillDeviceSelects(api_token, workspace_id) {
         $('#node-input-device_id_select').val('');
         $('#node-input-device_id_select').empty();
         let datacake_api_graphql = 'https://api.datacake.co/graphql/';
@@ -54,11 +54,11 @@
             url: datacake_api_graphql,
             contentType: "application/json",
             headers: {
-              Authorization: "Token " + api_token
+                Authorization: "Token " + api_token
             },
             data: JSON.stringify({
-                    query: `query {
-                                organization(id:"${workspace_id}") {
+                query: `query {
+                                workspace(id:"${workspace_id}") {
                                     id
                                     products {
                                         id
@@ -85,12 +85,12 @@
                                     }
                                 }
                             }`,
-                    variables: {
-                        "entry": $('#entry').val()
-                    }
+                variables: {
+                    "entry": $('#entry').val()
+                }
             }),
-            success: function(result) {
-                if(result.data.allDevices.length){
+            success: function (result) {
+                if (result.data.allDevices.length) {
                     $('#node-input-device_id_select').empty();
                     // build device select
                     $('#node-input-device_id_select').append(
@@ -100,7 +100,7 @@
                             selected: true,
                         })
                     );
-                    $.each(result.data.allDevices, function(i, item){
+                    $.each(result.data.allDevices, function (i, item) {
                         $('#node-input-device_id_select').append(
                             $('<option>', {
                                 value: item.id + '#' + item.product.slug,
@@ -109,7 +109,7 @@
                         );
                     });
 
-                    if($('#node-input-device_id').val()){
+                    if ($('#node-input-device_id').val()) {
                         // select init
                         $('#node-input-device_id_select').val($('#node-input-device_id').val());
                     }
@@ -117,7 +117,7 @@
                     // fill fields
                     fillFieldSelects(api_token, workspace_id);
 
-                    $('#node-input-device_id_select').change(function(e){
+                    $('#node-input-device_id_select').change(function (e) {
                         fillFieldSelects(api_token, workspace_id);
                     });
                     enableSelects('device');
@@ -129,7 +129,7 @@
         });
     }
 
-    function buildFieldSelects(currentDeviceId, api_token, workspace_id){
+    function buildFieldSelects(currentDeviceId, api_token, workspace_id) {
         $('#node-input-field_id_select').val('');
         $('#node-input-field_id_select').empty();
         let datacake_api_graphql = 'https://api.datacake.co/graphql/';
@@ -138,11 +138,11 @@
             url: datacake_api_graphql,
             contentType: "application/json",
             headers: {
-              Authorization: "Token " + api_token
+                Authorization: "Token " + api_token
             },
             data: JSON.stringify({
-                    query: `query {
-                                organization(id:"${workspace_id}") {
+                query: `query {
+                                workspace(id:"${workspace_id}") {
                                     id
                                     products {
                                         id
@@ -169,15 +169,15 @@
                                     }
                                 }
                             }`,
-                    variables: {
-                        "entry": $('#entry').val()
-                    }
+                variables: {
+                    "entry": $('#entry').val()
+                }
             }),
-            success: function(result) {
+            success: function (result) {
                 //currentDeviceId
-                if(result.data.allDevices.length){
+                if (result.data.allDevices.length) {
                     $('#node-input-field_id_select').empty();
-                    var result = $.grep(result.data.allDevices, function(e){ return e.id == currentDeviceId; });
+                    var result = $.grep(result.data.allDevices, function (e) { return e.id == currentDeviceId; });
                     // build device select
                     if (result.length !== 0) {
                         $('#node-input-field_id_select').append(
@@ -187,7 +187,7 @@
                                 selected: true,
                             })
                         );
-                        $.each(result[0].product.measurementFields, function(i, item){
+                        $.each(result[0].product.measurementFields, function (i, item) {
                             $('#node-input-field_id_select').append(
                                 $('<option>', {
                                     value: item.fieldName,
@@ -197,11 +197,11 @@
                         });
                     }
 
-                    if($('#node-input-field_id').val()){
+                    if ($('#node-input-field_id').val()) {
                         $('#node-input-field_id_select').val($('#node-input-field_id').val());
                     }
 
-                    $('#node-input-field_id_select').change(function(e){
+                    $('#node-input-field_id_select').change(function (e) {
                         $('#node-input-field_id').val($('#node-input-field_id_select').val());
                     });
                     enableSelects('field');
@@ -213,34 +213,34 @@
         });
     }
 
-    RED.nodes.registerType('datacake-device-input',{
-        category: 'Datacake',
+    RED.nodes.registerType('datacake-device-input', {
+        category: 'datacake',
         color: '#F29D00',
         defaults: {
-            name: {value:""},
-            datacake_configuration: {value:"", type:"datacake-configuration", required: true},
-            device_id: {value:"", required: true},
-            field_id: {value:"", required: true},
-            product_slug: {value: "", required: false}
+            name: { value: "" },
+            datacake_configuration: { value: "", type: "datacake-configuration", required: true },
+            device_id: { value: "", required: true },
+            field_id: { value: "", required: true },
+            product_slug: { value: "", required: false }
         },
         inputs: 0,
         outputs: 1,
         icon: "datacake.svg",
-        label: function() {
-            return this.name || "Datacake: Device Input";
+        label: function () {
+            return this.name || "Datacake Input";
         },
-        oneditprepare: function(){
-            $('#node-input-datacake_configuration').on('change', function(){
+        oneditprepare: function () {
+            $('#node-input-datacake_configuration').on('change', function () {
                 var hasConfiguration = false;
                 let thisConfig = $(this).val();
 
-                if(thisConfig != ""){
+                if (thisConfig != "") {
                     var datacake_configuration = RED.nodes.node(thisConfig);
-                    if(datacake_configuration && datacake_configuration.api_token && datacake_configuration.workspace_id){
+                    if (datacake_configuration && datacake_configuration.api_token && datacake_configuration.workspace_id) {
                         hasConfiguration = true;
                     }
                 }
-                if(!hasConfiguration) {
+                if (!hasConfiguration) {
                     // disable inputs
                     disableSelects();
                     // show error message
@@ -248,7 +248,7 @@
                     fillDeviceSelects(datacake_configuration.api_token, datacake_configuration.workspace_id);
                 }
 
-            } );
+            });
 
         }
     });

@@ -1,4 +1,4 @@
-module.exports = function(RED) {
+module.exports = function (RED) {
     function DatacakeConfigurationNode(n) {
         RED.nodes.createNode(this, n);
         this.api_token = n.api_token;
