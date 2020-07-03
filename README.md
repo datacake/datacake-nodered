@@ -3,7 +3,7 @@
 [Datacake](https://datacake.co) is a low-code IoT platform focussed on solving
 real use-cases with little effort. This repository contains Node-RED nodes
 that allow the subscription and publishing of device measurements. They are
-also used in [Caked Red](https://datacake.co/cake-red), our hosted & managed
+also used in [Cake Red](https://datacake.co/cake-red), our hosted & managed
 Node-RED offering.
 
 ## Development

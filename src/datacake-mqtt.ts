@@ -20,7 +20,10 @@ module.exports = (RED: Red) => {
 
       const configuration = RED.nodes.getNode(
         config.datacakeConfiguration
-      ) as Node & { client: MqttClient; matchTopic: (t, ts) => boolean };
+      ) as Node & {
+        client: MqttClient;
+        matchTopic: (t: string, ts: string) => boolean;
+      };
       if (!configuration) {
         this.status({
           fill: "red",

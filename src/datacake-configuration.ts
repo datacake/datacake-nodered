@@ -1,13 +1,13 @@
 import { NodeProperties, Red } from "node-red";
 import { Node } from "node-red-contrib-typescript-node";
-import mqtt from "mqtt";
+import mqtt, { MqttClient } from "mqtt";
 
 module.exports = (RED: Red) => {
   class DatacakeConfiguration extends Node {
-    constructor(config: NodeProperties) {
-      super(RED);
+    public client: MqttClient;
 
-      this.subscriptions = [];
+    constructor(config: NodeProperties & { apiKey: string }) {
+      super(RED);
 
       const clientId =
         "cakered_mqtt_" + (1 + Math.random() * 4294967295).toString(16);
@@ -28,7 +28,7 @@ module.exports = (RED: Red) => {
       this.createNode(config);
     }
 
-    public matchTopic(ts, t) {
+    public matchTopic(ts: string, t: string): boolean {
       const re = new RegExp(
         "^" +
           ts
