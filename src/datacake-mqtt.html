@@ -1,0 +1,243 @@
+<script type="text/javascript">
+  const oneditprepare = (direction) => () => {
+    const populateDevices = async () => {
+      $("#node-input-deviceId_select, #node-input-fieldName_select")
+        .attr("disabled", "disabled")
+        .empty();
+
+      const configuration = $("#node-input-datacakeConfiguration").val();
+      if (configuration) {
+        const config = RED.nodes.node(configuration);
+        this.devices = await config._def.getDevices(config);
+
+        const deviceIdField = $("#node-input-deviceId");
+        if (!deviceIdField.val() && this.devices[0]) {
+          deviceIdField.val(this.devices[0].id);
+          $("#node-input-productSlug").val(this.devices[0].product.slug);
+        }
+        populateFields();
+
+        $("#node-input-deviceId_select")
+          .empty()
+          .attr("disabled", false);
+
+        if (direction === "out") {
+          $("#node-input-deviceId_select").append(
+            $("<option/>")
+              .val("")
+              .text("Pass deviceId in msg object")
+              .attr("selected", "" === deviceIdField.val() ? "selected" : false)
+          );
+        }
+
+        for (let j = 0; j < this.devices.length; j++) {
+          $("#node-input-deviceId_select").append(
+            $("<option/>")
+              .val(this.devices[j].id)
+              .text(this.devices[j].verboseName)
+              .attr(
+                "selected",
+                this.devices[j].id === deviceIdField.val() ? "selected" : false
+              )
+          );
+        }
+      }
+    };
+    const populateFields = () => {
+      const device = this.devices.find(
+        (v) => v.id === $("#node-input-deviceId").val()
+      );
+      $("#node-input-fieldName_select").empty();
+      if (device) {
+        const fieldNameField = $("#node-input-fieldName");
+        if (!fieldNameField.val() && direction === "in") {
+          fieldNameField.val("+");
+        }
+        $("#node-input-fieldName_select")
+          .append(
+            $("<option/>")
+              .val("+")
+              .text("All Measurements")
+              .attr(
+                "selected",
+                "+" === fieldNameField.val() ? "selected" : false
+              )
+          )
+          .append($("<option disabled>──────────</option>"));
+        for (let k = 0; k < device.product.measurementFields.length; k++) {
+          $("#node-input-fieldName_select").append(
+            $("<option/>")
+              .val(device.product.measurementFields[k].fieldName)
+              .text(device.product.measurementFields[k].verboseFieldName)
+              .attr(
+                "selected",
+                device.product.measurementFields[k].fieldName ===
+                  fieldNameField.val()
+                  ? "selected"
+                  : false
+              )
+          );
+        }
+        $("#node-input-fieldName_select").attr("disabled", false);
+      }
+    };
+
+    $("#node-input-datacakeConfiguration").on("change", () => {
+      populateDevices();
+    });
+    $("#node-input-deviceId_select").on("change", (e) => {
+      $("#node-input-deviceId").val(e.target.value);
+      $("#node-input-productSlug").val(
+        this.devices.find((d) => d.id === e.target.value).product.slug
+      );
+      $("#node-input-fieldName").val("+");
+      populateFields();
+    });
+    $("#node-input-fieldName_select").on("change", (e) => {
+      $("#node-input-fieldName").val(e.target.value);
+    });
+    populateDevices();
+  };
+
+  RED.nodes.registerType("datacake-in", {
+    category: "datacake",
+    color: "#F29D00",
+    defaults: {
+      name: { value: "" },
+      datacakeConfiguration: {
+        value: "",
+        type: "datacake-configuration",
+        required: true,
+      },
+      deviceId: { value: "" },
+      fieldName: { value: "" },
+      productSlug: { value: "" },
+    },
+    outputs: 1,
+    icon: "datacake.svg",
+    label: () => {
+      return this.name || "datacake-in";
+    },
+    oneditprepare: oneditprepare("in"),
+  });
+
+  RED.nodes.registerType("datacake-out", {
+    category: "datacake",
+    color: "#F29D00",
+    defaults: {
+      name: { value: "" },
+      datacakeConfiguration: {
+        value: "",
+        type: "datacake-configuration",
+        required: true,
+      },
+      deviceId: { value: "" },
+      fieldName: { value: "" },
+      productSlug: { value: "" },
+    },
+    inputs: 1,
+    icon: "datacake.svg",
+    label: () => {
+      return this.name || "datacake-out";
+    },
+    oneditprepare: oneditprepare("out"),
+  });
+</script>
+
+<script type="text/x-red" data-template-name="datacake-in">
+    <div class="form-row">
+        <label for="node-input-name"><i class="icon-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+
+    <div class="form-row">
+      <label for="node-input-datacakeConfiguration"><i class="icon-tag"></i> Configuration</label>
+      <input type="text" id="node-input-datacakeConfiguration" placeholder="Datacake Configuration">
+    </div>
+
+    <div class="form-row">
+      <label for="node-input-deviceId"><i class="icon-tag"></i> Device</label>
+      <input type="hidden" id="node-input-productSlug">
+      <input type="hidden" id="node-input-deviceId">
+      <select id="node-input-deviceId_select">
+          <option value=""></option>
+      </select>
+  </div>
+
+  <div class="form-row">
+      <label for="node-input-fieldName"><i class="icon-tag"></i> Field</label>
+      <input type="hidden" id="node-input-fieldName">
+      <select id="node-input-fieldName_select">
+          <option value=""></option>
+      </select>
+  </div>
+</script>
+
+<script type="text/x-red" data-help-name="datacake-in">
+  <p>Subscribes to measurements from Datacake devices</p>
+  <h3>Outputs</h3>
+     <ol class="node-ports">
+         <li>Standard output
+             <dl class="message-properties">
+                 <dt>payload <span class="property-type">string</span></dt>
+                 <dd>the measurement.</dd>
+
+                 <dt>deviceId <span class="property-type">string</span></dt>
+                 <dd>the ID of the Datacake device.</dd>
+                 <dt>productSlug <span class="property-type">string</span></dt>
+                 <dd>the slug of the device's product.</dd>
+                 <dt>fieldName <span class="property-type">string</span></dt>
+                 <dd>the field name.</dd>
+             </dl>
+         </li>
+     </ol>
+</script>
+
+<script type="text/x-red" data-template-name="datacake-out">
+    <div class="form-row">
+        <label for="node-input-name"><i class="icon-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+
+    <div class="form-row">
+      <label for="node-input-datacakeConfiguration"><i class="icon-tag"></i> Configuration</label>
+      <input type="text" id="node-input-datacakeConfiguration" placeholder="Datacake Configuration">
+    </div>
+
+    <div class="form-row">
+      <label for="node-input-deviceId"><i class="icon-tag"></i> Device</label>
+      <input type="hidden" id="node-input-productSlug">
+      <input type="hidden" id="node-input-deviceId">
+      <select id="node-input-deviceId_select">
+          <option value=""></option>
+      </select>
+  </div>
+
+  <div class="form-row">
+      <label for="node-input-fieldName"><i class="icon-tag"></i> Field</label>
+      <input type="hidden" id="node-input-fieldName">
+      <select id="node-input-fieldName_select">
+          <option value=""></option>
+      </select>
+  </div>
+
+  <div class="form-tips"><b>Tip:</b> You can overwrite the <code>deviceId</code>, <code>productSlug</code> and <code>fieldName</code> attributes via msg properties.</div>
+</script>
+
+<script type="text/x-red" data-help-name="datacake-out">
+  <p>Publishes measurements to Datacake devices</p>
+
+  <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>payload
+            <span class="property-type">string</span>
+        </dt>
+        <dd> the measurement to publish. </dd>
+        <dt class="optional">productSlug <span class="property-type">string</span></dt>
+        <dd> the product slug of the Datacake device to publish to.</dd>
+        <dt class="optional">deviceId <span class="property-type">string</span></dt>
+        <dd> the ID of the Datacake device to publish to.</dd>
+        <dt class="optional">fieldName <span class="property-type">string</span></dt>
+        <dd> the name of the field to publish to.</dd>
+    </dl>
+</script>

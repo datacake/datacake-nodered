@@ -1,0 +1,130 @@
+<script type="text/javascript">
+  RED.nodes.registerType("datacake-configuration", {
+    category: "config",
+    color: "#f29d00",
+    defaults: {
+      apiKey: { value: "", required: true },
+      workspaceId: { value: "", required: true },
+      workspaceName: { value: "", required: true },
+    },
+    label: function() {
+      if (this.workspaceName) {
+        return `Workspace: ${this.workspaceName}`;
+      } else {
+        return "Invalid configuration";
+      }
+    },
+    getDevices: async function(config) {
+      if (!config.apiKey || !config.workspaceId) {
+        return;
+      }
+      return await fetch("https://api.datacake.co/graphql/", {
+        method: "POST",
+        mode: "cors",
+        cache: "no-cache",
+        credentials: "same-origin",
+        headers: {
+          Authorization: "Token " + config.apiKey,
+          "Content-Type": "application/json",
+        },
+        redirect: "follow",
+        referrerPolicy: "no-referrer",
+        body: JSON.stringify({
+          query: `query getDevices($workspace: String!) {
+                    allDevices(inWorkspace: $workspace) {
+                        id
+                        verboseName
+                        product {
+                          id
+                          slug
+                          measurementFields {
+                            id
+                            fieldName
+                            verboseFieldName
+                          }
+                        }
+                    }
+                }`,
+          variables: {
+            workspace: config.workspaceId,
+          },
+        }),
+      })
+        .then((res) => res.json())
+        .then((res) => res.data.allDevices);
+    },
+    oneditprepare: () => {
+      const populateWorkspaces = () => {
+        var apiKey = $("#node-config-input-apiKey").val();
+        if (apiKey.length !== 40) {
+          return;
+        }
+        $.ajax({
+          method: "POST",
+          url: "https://api.datacake.co/graphql/",
+          contentType: "application/json",
+          headers: {
+            Authorization: "Token " + apiKey,
+          },
+          data: JSON.stringify({
+            query: `query {
+                    allWorkspaces {
+                        id
+                        name
+                    }
+                }`,
+          }),
+          success: (result) => {
+            //currentDeviceId
+            if (result && result.data && result.data.allWorkspaces) {
+              $("#node-config-input-workspaceSelect").empty();
+              $("#node-config-input-workspaceSelect").append(
+                $('<option value="">Please select</option>')
+              );
+              for (let i = 0; i < result.data.allWorkspaces.length; i++) {
+                $("#node-config-input-workspaceSelect").append(
+                  $(
+                    `<option ${result.data.allWorkspaces[i].id ===
+                      $("#node-config-input-workspaceId").val() &&
+                      'selected="selected"'} value="${
+                      result.data.allWorkspaces[i].id
+                    };${result.data.allWorkspaces[i].name}">${
+                      result.data.allWorkspaces[i].name
+                    }</option>`
+                  )
+                );
+              }
+            }
+          },
+        });
+      };
+      $("#node-config-input-apiKey").on("change", populateWorkspaces);
+      populateWorkspaces();
+
+      $("#node-config-input-workspaceSelect").on("change", (e) => {
+        const [id, name] = e.target.value.split(/;(.+)/);
+        $("#node-config-input-workspaceId").val(id);
+        $("#node-config-input-workspaceName").val(name);
+      });
+    },
+  });
+</script>
+
+<script type="text/x-red" data-template-name="datacake-configuration">
+    <div class="form-row">
+        <label for="node-config-input-apiKey"><i class="icon-tag"></i> API Token</label>
+        <input type="text" id="node-config-input-apiKey" placeholder="API Token">
+    </div>
+    <input type="hidden" id="node-config-input-workspaceId">
+    <input type="hidden" id="node-config-input-workspaceName">
+    <div class="form-row">
+      <label for="node-config-input-workspaceName"><i class="icon-tag"></i> Workspace</label>
+      <select id="node-config-input-workspaceSelect">
+          <option value="">Please select</option>
+      </select>
+  </div>
+</script>
+
+<script type="text/x-red" data-help-name="datacake-configuration">
+  <p>Configuration node for Datacake</p>
+</script>
