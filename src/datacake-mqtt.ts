@@ -37,21 +37,27 @@ module.exports = (RED: Red) => {
       configuration.client.subscribe(this.topic, (err) => {
         if (err) {
           this.status({ fill: "red", shape: "ring", text: "disconnected" });
+          console.log(`Error subscribing to ${this.topic}`);
         } else {
           this.status({ fill: "green", shape: "dot", text: "connected" });
+          console.log(`Successfully subscribed to ${this.topic}`);
         }
       });
       configuration.client.on("close", () => {
         this.status({ fill: "red", shape: "ring", text: "disconnected" });
+        console.log(`MQTT close`);
       });
       configuration.client.on("disconnect", () => {
         this.status({ fill: "red", shape: "ring", text: "disconnected" });
+        console.log(`MQTT disconnect`);
       });
       configuration.client.on("offline", () => {
         this.status({ fill: "red", shape: "ring", text: "disconnected" });
+        console.log(`MQTT offline`);
       });
       configuration.client.on("error", () => {
         this.status({ fill: "red", shape: "ring", text: "disconnected" });
+        console.log(`MQTT error`);
       });
       configuration.client.on("message", (topic, message) => {
         if (configuration.matchTopic(this.topic, topic)) {
@@ -63,11 +69,6 @@ module.exports = (RED: Red) => {
             productSlug,
           });
         }
-      });
-
-      this.on("input", (msg: any) => {
-        msg.payload = "asdf";
-        this.send(msg);
       });
     }
   }
@@ -100,18 +101,23 @@ module.exports = (RED: Red) => {
 
       configuration.client.on("connect", () => {
         this.status({ fill: "green", shape: "dot", text: "connected" });
+        console.log(`MQTT connect`);
       });
       configuration.client.on("close", () => {
         this.status({ fill: "red", shape: "ring", text: "disconnected" });
+        console.log(`MQTT close`);
       });
       configuration.client.on("disconnect", () => {
         this.status({ fill: "red", shape: "ring", text: "disconnected" });
+        console.log(`MQTT disconnect`);
       });
       configuration.client.on("offline", () => {
         this.status({ fill: "red", shape: "ring", text: "disconnected" });
+        console.log(`MQTT offline`);
       });
       configuration.client.on("error", () => {
         this.status({ fill: "red", shape: "ring", text: "disconnected" });
+        console.log(`MQTT error`);
       });
 
       this.on("input", (msg: any) => {
