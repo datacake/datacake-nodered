@@ -34,14 +34,16 @@ module.exports = (RED: Red) => {
 
       this.topic = `dtck/${config.productSlug}/${config.deviceId}/${config.fieldName}`;
 
-      configuration.client.subscribe(this.topic, (err) => {
-        if (err) {
-          this.status({ fill: "red", shape: "ring", text: "disconnected" });
-          console.log(`Error subscribing to ${this.topic}`);
-        } else {
-          this.status({ fill: "green", shape: "dot", text: "connected" });
-          console.log(`Successfully subscribed to ${this.topic}`);
-        }
+      configuration.client.on("connect", () => {
+        configuration.client.subscribe(this.topic, (err) => {
+          if (err) {
+            this.status({ fill: "red", shape: "ring", text: "disconnected" });
+            console.log(`Error subscribing to ${this.topic}`);
+          } else {
+            this.status({ fill: "green", shape: "dot", text: "connected" });
+            console.log(`Successfully subscribed to ${this.topic}`);
+          }
+        });
       });
       configuration.client.on("close", () => {
         this.status({ fill: "red", shape: "ring", text: "disconnected" });
