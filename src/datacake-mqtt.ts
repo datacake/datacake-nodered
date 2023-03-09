@@ -123,9 +123,7 @@ module.exports = (RED: Red) => {
       });
 
       this.on("input", (msg: any) => {
-        const topic = `dtck-pub/${msg.productSlug ||
-          config.productSlug}/${msg.deviceId ||
-          config.deviceId}/${msg.fieldName || config.fieldName}`;
+        const topic = `dtck-pub/${config.productSlug}/${config.deviceId}/${config.fieldName}`;
         configuration.client.publish(topic, msg.payload.toString());
       });
     }
