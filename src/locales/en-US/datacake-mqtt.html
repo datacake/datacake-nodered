@@ -1,0 +1,61 @@
+<script type="text/html" data-help-name="datacake-in">
+  <p>Receives the measurements of Datacake devices in real time through the Datacake MQTT broker.</p>
+
+  <h3>Properties</h3>
+  <dl class="message-properties">
+    <dt>Source</dt>
+    <dd>One device, or all devices of a product.</dd>
+    <dt>Field</dt>
+    <dd>One field or all fields.</dd>
+    <dt>Values</dt>
+    <dd><i>Typed</i> converts numbers and booleans according to the field type of the product.
+      <i>Always text</i> keeps the behaviour of version 0.x, where every value is a string.</dd>
+  </dl>
+
+  <h3>Outputs</h3>
+  <dl class="message-properties">
+    <dt>payload <span class="property-type">number | boolean | string</span></dt>
+    <dd>the new value of the field.</dd>
+    <dt>topic <span class="property-type">string</span></dt>
+    <dd>the MQTT topic, <code>dtck/&lt;product&gt;/&lt;device&gt;/&lt;FIELD&gt;</code>.</dd>
+    <dt>deviceId <span class="property-type">string</span></dt>
+    <dd>the id of the Datacake device.</dd>
+    <dt>productSlug <span class="property-type">string</span></dt>
+    <dd>the slug of the device's product.</dd>
+    <dt>fieldName <span class="property-type">string</span></dt>
+    <dd>the field identifier, for example <code>TEMPERATURE</code>.</dd>
+    <dt>datacake <span class="property-type">object</span></dt>
+    <dd>details for display and routing: <code>deviceName</code>, <code>productName</code>,
+      <code>fieldLabel</code>, <code>unit</code> (when they could be looked up), plus the ids above.</dd>
+  </dl>
+
+  <h3>Details</h3>
+  <p>All Datacake nodes of an account share one MQTT connection. The node status shows the
+    connection state and the last value received.</p>
+</script>
+
+<script type="text/html" data-help-name="datacake-out">
+  <p>Writes measurements to Datacake devices through the Datacake MQTT broker.</p>
+
+  <h3>Inputs</h3>
+  <dl class="message-properties">
+    <dt>payload <span class="property-type">number | boolean | string | object</span></dt>
+    <dd>the value to write. With <i>Several fields from msg.payload</i> an object such as
+      <code>{"TEMPERATURE": 21.5, "HUMIDITY": 48}</code>; every field is published as its own
+      message.</dd>
+    <dt class="optional">deviceId <span class="property-type">string</span></dt>
+    <dd>the target device, when the target is <i>Device from msg.deviceId</i>.</dd>
+    <dt class="optional">productSlug <span class="property-type">string</span></dt>
+    <dd>the product of that device. Optional, it is looked up from the device id.</dd>
+    <dt class="optional">fieldName <span class="property-type">string</span></dt>
+    <dd>the target field identifier, when the field is <i>Field from msg.fieldName</i>.</dd>
+  </dl>
+
+  <h3>Details</h3>
+  <p>Fields that do not exist on the device are skipped with a warning. Lower case identifiers
+    such as <code>temperature</code> are matched to <code>TEMPERATURE</code>.</p>
+  <p>When device or field come from the message, a message that comes straight from a
+    <code>datacake in</code> node is never written back to the device and field it was read from.
+    Datacake would publish the value again and the flow would loop forever.</p>
+  <p>Errors, for example when the broker is not connected, can be handled with a Catch node.</p>
+</script>

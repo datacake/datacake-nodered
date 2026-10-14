@@ -1,0 +1,54 @@
+[
+  {
+    "id": "c1",
+    "type": "comment",
+    "z": "",
+    "name": "Open the datacake in node, add your Datacake account and pick a device",
+    "info": "Set an API token and workspace in the account, then select a device and a field (or all fields).\nTyped values turn numbers and booleans into real numbers and booleans.",
+    "x": 260,
+    "y": 60,
+    "wires": []
+  },
+  {
+    "id": "in1",
+    "type": "datacake-in",
+    "z": "",
+    "name": "",
+    "datacakeConfiguration": "dc-config",
+    "source": "device",
+    "payloadType": "auto",
+    "productSlug": "",
+    "deviceId": "",
+    "fieldName": "+",
+    "deviceName": "",
+    "fieldLabel": "",
+    "productName": "",
+    "x": 150,
+    "y": 120,
+    "wires": [["dbg1"]]
+  },
+  {
+    "id": "dbg1",
+    "type": "debug",
+    "z": "",
+    "name": "value",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": true,
+    "complete": "true",
+    "targetType": "full",
+    "statusVal": "payload",
+    "statusType": "auto",
+    "x": 390,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "dc-config",
+    "type": "datacake-configuration",
+    "workspaceId": "",
+    "workspaceName": "",
+    "apiKey": ""
+  }
+]

@@ -1,0 +1,74 @@
+[
+  {
+    "id": "c1",
+    "type": "comment",
+    "z": "",
+    "name": "Write several fields of a device with one message",
+    "info": "The datacake out node is set to 'Several fields from msg.payload'. Every key of the object is published as its own MQTT message to that field.",
+    "x": 260,
+    "y": 60,
+    "wires": []
+  },
+  {
+    "id": "inj1",
+    "type": "inject",
+    "z": "",
+    "name": "every minute",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "60",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 140,
+    "y": 120,
+    "wires": [["fn1"]]
+  },
+  {
+    "id": "fn1",
+    "type": "function",
+    "z": "",
+    "name": "build fields",
+    "func": "msg.payload = {\n    TEMPERATURE: 20 + Math.random() * 5,\n    HUMIDITY: 40 + Math.random() * 10\n};\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 320,
+    "y": 120,
+    "wires": [["out1"]]
+  },
+  {
+    "id": "out1",
+    "type": "datacake-out",
+    "z": "",
+    "name": "",
+    "datacakeConfiguration": "dc-config",
+    "target": "configured",
+    "fieldMode": "payload",
+    "productSlug": "",
+    "deviceId": "",
+    "fieldName": "",
+    "deviceName": "",
+    "fieldLabel": "",
+    "productName": "",
+    "x": 520,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "dc-config",
+    "type": "datacake-configuration",
+    "workspaceId": "",
+    "workspaceName": "",
+    "apiKey": ""
+  }
+]

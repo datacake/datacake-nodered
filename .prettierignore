@@ -1,0 +1,5 @@
+dist
+.test-build
+node_modules
+package-lock.json
+src/**/*.html

@@ -1,0 +1,88 @@
+[
+  {
+    "id": "c1",
+    "type": "comment",
+    "z": "",
+    "name": "One node for all devices of a product, e.g. a temperature alarm",
+    "info": "Choose 'All devices of a product', a product and a field. msg.datacake.deviceName tells which device sent the value.",
+    "x": 260,
+    "y": 60,
+    "wires": []
+  },
+  {
+    "id": "in1",
+    "type": "datacake-in",
+    "z": "",
+    "name": "",
+    "datacakeConfiguration": "dc-config",
+    "source": "product",
+    "payloadType": "auto",
+    "productSlug": "",
+    "deviceId": "",
+    "fieldName": "TEMPERATURE",
+    "deviceName": "",
+    "fieldLabel": "",
+    "productName": "",
+    "x": 150,
+    "y": 120,
+    "wires": [["sw1"]]
+  },
+  {
+    "id": "sw1",
+    "type": "switch",
+    "z": "",
+    "name": "above 8 °C",
+    "property": "payload",
+    "propertyType": "msg",
+    "rules": [
+      {
+        "t": "gt",
+        "v": "8",
+        "vt": "num"
+      }
+    ],
+    "checkall": "true",
+    "repair": false,
+    "outputs": 1,
+    "x": 360,
+    "y": 120,
+    "wires": [["tpl1"]]
+  },
+  {
+    "id": "tpl1",
+    "type": "template",
+    "z": "",
+    "name": "alarm text",
+    "field": "payload",
+    "fieldType": "msg",
+    "format": "handlebars",
+    "syntax": "mustache",
+    "template": "{{datacake.deviceName}}: {{payload}} {{datacake.unit}}",
+    "output": "str",
+    "x": 540,
+    "y": 120,
+    "wires": [["dbg1"]]
+  },
+  {
+    "id": "dbg1",
+    "type": "debug",
+    "z": "",
+    "name": "alarm",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "x": 710,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "dc-config",
+    "type": "datacake-configuration",
+    "workspaceId": "",
+    "workspaceName": "",
+    "apiKey": ""
+  }
+]

@@ -1,0 +1,28 @@
+{
+  "datacake-configuration": {
+    "label": {
+      "apiToken": "API token",
+      "workspace": "Workspace",
+      "workspacePrefix": "Workspace",
+      "selectWorkspace": "Select a workspace",
+      "enterToken": "Enter an API token to load the workspaces",
+      "loading": "Loading…",
+      "reload": "Reload workspaces",
+      "invalid": "Datacake (no workspace)"
+    },
+    "tip": {
+      "token": "Create a token in Datacake under Account Settings → API Token, or better use an API user with limited permissions (Members → API Users).",
+      "migrated": "The API token was stored in plain text in the flow file. It now moves to the encrypted credentials, deploy to complete the change."
+    },
+    "migration": {
+      "notice": "__count__ Datacake account(s) store the API token in plain text in the flow file.",
+      "migrate": "Move to encrypted credentials",
+      "later": "Later",
+      "done": "API token moved to the encrypted credentials. Deploy to save the change."
+    },
+    "errors": {
+      "noToken": "No API token available",
+      "loadFailed": "Could not load the workspaces: __error__"
+    }
+  }
+}
