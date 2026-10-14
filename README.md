@@ -139,6 +139,17 @@ Node-RED; after changes to `.html` files reload the editor too.
 For tests the broker and API can be replaced with the environment variables `DATACAKE_MQTT_URL`
 and `DATACAKE_API_URL`.
 
+## Releasing
+
+Releases are published to npm by GitHub Actions through
+[trusted publishing](https://docs.npmjs.com/trusted-publishers), no npm token is stored in the
+repository. Bump `version` in `package.json`, update `CHANGELOG.md`, merge to `master`, then push a
+matching tag:
+
+```sh
+git tag v1.0.0 && git push origin v1.0.0
+```
+
 ## License
 
 MIT
