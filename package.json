@@ -1,50 +1,64 @@
 {
   "name": "node-red-contrib-datacake",
-  "version": "0.1.5",
-  "description": "Datacake nodes for Node-RED",
+  "version": "1.0.0",
+  "description": "Node-RED nodes for Datacake: subscribe to and publish device measurements via the Datacake MQTT broker",
   "author": "Lukas Klein <lukas@datacake.co>",
+  "contributors": [
+    "Simon Kemper <simon@datacake.de>"
+  ],
   "license": "MIT",
-  "scripts": {
-    "start": "npm run watch",
-    "build": "npm run build-ts && npm run tslint && npm run copy-static-assets",
-    "watch-node": "nodemon --watch dist/ --exec \"node-red\"",
-    "watch": "concurrently --kill-others-on-fail -p \"[{name}]\" -n \"Assets,TypeScript,Node\" -c \"yellow.bold,cyan.bold,green.bold\" \"npm run copy-static-assets\" \"npm run watch-ts\" \"npm run watch-node\"",
-    "test": "jest --forceExit --verbose -- --watchAll",
-    "coverage": "jest --forceExit --coverage --verbose",
-    "build-ts": "tsc",
-    "watch-ts": "tsc -w",
-    "tslint": "tslint -c tslint.json -p tsconfig.json",
-    "copy-static-assets": "ts-node copyStaticAssets.ts"
+  "homepage": "https://github.com/datacake/datacake-nodered#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/datacake/datacake-nodered.git"
+  },
+  "bugs": {
+    "url": "https://github.com/datacake/datacake-nodered/issues"
   },
   "keywords": [
     "node-red",
-    "datacake"
+    "datacake",
+    "iot",
+    "mqtt",
+    "lorawan"
   ],
   "node-red": {
+    "version": ">=3.1.0",
     "nodes": {
       "datacake-mqtt": "dist/datacake-mqtt.js",
       "datacake-configuration": "dist/datacake-configuration.js"
     }
   },
-  "devDependencies": {
-    "@types/jest": "^24.0.11",
-    "@types/node": "^11.13.4",
-    "@types/node-red": "^0.17.3",
-    "@types/shelljs": "^0.8.4",
-    "concurrently": "^4.1.0",
-    "jest": "^24.7.1",
-    "nodemon": "^1.18.0",
-    "prettier": "^1.17.0",
-    "shelljs": "^0.8.3",
-    "ts-jest": "^24.0.2",
-    "ts-node": "^8.0.0",
-    "tslint": "^5.15.0",
-    "typescript": "^3.4"
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "dist",
+    "examples"
+  ],
+  "scripts": {
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "npm run clean && tsc -p tsconfig.build.json && node scripts/copy-assets.mjs",
+    "watch": "tsc -p tsconfig.build.json --watch",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "pretest": "node -e \"require('fs').rmSync('.test-build',{recursive:true,force:true})\" && tsc -p tsconfig.test.json",
+    "test": "node scripts/run-tests.mjs",
+    "prepack": "npm run build"
   },
   "dependencies": {
-    "node-red": "^0.20.5",
-    "node-red-contrib-typescript-node": "^0.1.0",
-    "is-utf8": "^0.2.1",
-    "mqtt": "^3.0.0"
+    "mqtt": "^5.16.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "@types/node": "^18.19.0",
+    "@types/node-red": "^1.3.5",
+    "aedes": "^0.51.3",
+    "eslint": "^9.39.0",
+    "node-red": "^5.0.8",
+    "node-red-node-test-helper": "^0.3.6",
+    "prettier": "^3.9.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.71.0"
   }
 }

@@ -1,0 +1,68 @@
+{
+  "datacake-mqtt": {
+    "label": {
+      "paletteIn": "datacake in",
+      "paletteOut": "datacake out",
+      "name": "Name",
+      "configuration": "Account",
+      "source": "Source",
+      "sourceDevice": "One device",
+      "sourceProduct": "All devices of a product",
+      "device": "Device",
+      "product": "Product",
+      "field": "Field",
+      "payloadType": "Values",
+      "payloadAuto": "Typed (number, boolean, text)",
+      "payloadString": "Always text (as in 0.x)",
+      "target": "Target",
+      "targetConfigured": "Fixed device",
+      "targetMsg": "Device from msg.deviceId",
+      "fieldMode": "Field source",
+      "fieldFixed": "Fixed field",
+      "fieldMsg": "Field from msg.fieldName",
+      "fieldPayload": "Several fields from msg.payload",
+      "fieldIdentifier": "Identifier",
+      "allFields": "all fields",
+      "allDevices": "all devices",
+      "payloadFields": "fields from payload",
+      "searchDevices": "Search devices",
+      "noDevice": "No device selected",
+      "selectConfig": "Select or add a Datacake account first",
+      "loading": "Loading…",
+      "moreDevices": "__shown__ of __total__ devices shown, refine the search",
+      "noDevicesFound": "No devices found",
+      "selectProduct": "Select a product",
+      "selectField": "Select a field",
+      "loadFailed": "Could not load from Datacake: __error__"
+    },
+    "tip": {
+      "inMessage": "Every message carries <code>msg.payload</code>, <code>msg.deviceId</code>, <code>msg.fieldName</code> and more details in <code>msg.datacake</code>.",
+      "outDynamic": "Messages coming straight from a datacake in node are never written back to the device and field they came from, to prevent endless loops.",
+      "outPayload": "Send an object such as <code>{\"TEMPERATURE\": 21.5, \"HUMIDITY\": 48}</code>. Each field is published as its own message."
+    },
+    "status": {
+      "connected": "connected",
+      "connecting": "connecting",
+      "disconnected": "disconnected",
+      "sent": "sent",
+      "noConfig": "no account",
+      "noToken": "no API token",
+      "invalidConfig": "invalid configuration",
+      "subscribeFailed": "subscription failed"
+    },
+    "errors": {
+      "noConfig": "No Datacake account is configured for this node",
+      "noToken": "The Datacake account has no API token",
+      "noConfigOrToken": "No Datacake account or API token configured",
+      "invalidConfig": "Invalid configuration",
+      "noDevice": "no device selected",
+      "noField": "no field selected",
+      "msgDeviceId": "msg.deviceId must contain the id of a Datacake device",
+      "msgFieldName": "msg.fieldName must contain a field identifier such as TEMPERATURE",
+      "unknownProduct": "Cannot determine the product of device __deviceId__, set msg.productSlug",
+      "unknownField": "Field __field__ does not exist on this device and was not sent",
+      "loop": "Field __field__ was not written back to the device it was read from (loop protection)",
+      "nothingToSend": "Nothing to send"
+    }
+  }
+}

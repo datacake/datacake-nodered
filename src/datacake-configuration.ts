@@ -1,49 +1,55 @@
-import { NodeProperties, Red } from "node-red";
-import { Node } from "node-red-contrib-typescript-node";
-import mqtt, { MqttClient } from "mqtt";
+import type { NodeAPI } from "node-red";
+import { registerAdminApi } from "./lib/admin-api";
+import {
+  CONFIG_NODE_TYPE,
+  resolveToken,
+  type DatacakeConfigurationCredentials,
+  type DatacakeConfigurationDef,
+  type DatacakeConfigurationNode,
+} from "./lib/config-node";
+import { DatacakeConnection } from "./lib/connection";
+import { DeviceCache } from "./lib/device-cache";
+import { fetchDevices, fetchProducts, mqttUrl } from "./lib/graphql";
 
-module.exports = (RED: Red) => {
-  class DatacakeConfiguration extends Node {
-    public client: MqttClient;
+export = function (RED: NodeAPI) {
+  function DatacakeConfiguration(
+    this: DatacakeConfigurationNode,
+    config: DatacakeConfigurationDef,
+  ) {
+    RED.nodes.createNode(this, config);
+    const node = this;
+    node.workspaceId = config.workspaceId || undefined;
+    node.token = resolveToken(node.credentials, config);
 
-    constructor(config: NodeProperties & { apiKey: string }) {
-      super(RED);
-
-      const clientId =
-        "cakered_mqtt_" + (1 + Math.random() * 4294967295).toString(16);
-
-      const { apiKey } = config;
-      if (!!apiKey) {
-        this.client = mqtt.connect("mqtts://mqtt.datacake.co", {
-          port: 8883,
-          username: apiKey,
-          password: apiKey,
-          clientId,
-        });
-        this.client.on("connect", () => {
-          console.log("Connected to Datacake MQTT Broker");
-        });
-      }
-
-      this.createNode(config);
+    if (node.token) {
+      const token = node.token;
+      node.connection = new DatacakeConnection({
+        url: mqttUrl(),
+        token,
+        log: { debug: (m) => node.debug(m), warn: (m) => node.warn(m) },
+      });
+      node.cache = new DeviceCache({
+        devices: (ids) => fetchDevices(token, ids, node.workspaceId),
+        products: () =>
+          node.workspaceId ? fetchProducts(token, node.workspaceId) : Promise.resolve([]),
+      });
     }
 
-    public matchTopic(ts: string, t: string): boolean {
-      const re = new RegExp(
-        "^" +
-          ts
-            .replace(/([\[\]\?\(\)\\\\$\^\*\.|])/g, "\\$1")
-            .replace(/\+/g, "[^/]+")
-            .replace(/\/#$/, "(/.*)?") +
-          "$"
-      );
-      return re.test(t);
-    }
+    node.on("close", (_removed: boolean, done: () => void) => {
+      node.cache?.clear();
+      const closing = node.connection?.close() ?? Promise.resolve();
+      closing.then(done, done);
+    });
   }
 
-  DatacakeConfiguration.registerType(RED, "datacake-configuration", {
-    credentials: {
-      apiKey: { type: "password" },
-    },
+  RED.nodes.registerType<
+    DatacakeConfigurationNode,
+    DatacakeConfigurationDef,
+    unknown,
+    DatacakeConfigurationCredentials
+  >(CONFIG_NODE_TYPE, DatacakeConfiguration, {
+    credentials: { apiToken: { type: "password" } },
   });
+
+  registerAdminApi(RED);
 };

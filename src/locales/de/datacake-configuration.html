@@ -1,0 +1,15 @@
+<script type="text/html" data-help-name="datacake-configuration">
+  <p>Verbindung zu einem Datacake-Workspace, die sich alle Datacake-Nodes teilen, die sie nutzen.</p>
+  <h3>Eigenschaften</h3>
+  <dl class="message-properties">
+    <dt>API-Token</dt>
+    <dd>ein persönliches Token (Account Settings → API Token) oder besser das Token eines API-Users
+      mit eingeschränkten Rechten (Members → API Users). Es wird in den verschlüsselten Credentials
+      gespeichert, nicht in der Flow-Datei.</dd>
+    <dt>Workspace</dt>
+    <dd>der Workspace, dessen Geräte die Nodes anbieten.</dd>
+  </dl>
+  <h3>Details</h3>
+  <p>Die MQTT-Verbindung zu <code>mqtt.datacake.co</code> wird geöffnet, sobald der erste Node sie
+    braucht, und geschlossen, wenn der letzte entfernt oder neu deployt wird.</p>
+</script>

@@ -1,0 +1,61 @@
+<script type="text/html" data-help-name="datacake-in">
+  <p>Empfängt die Messwerte von Datacake-Geräten in Echtzeit über den Datacake-MQTT-Broker.</p>
+
+  <h3>Eigenschaften</h3>
+  <dl class="message-properties">
+    <dt>Quelle</dt>
+    <dd>Ein Gerät oder alle Geräte eines Produkts.</dd>
+    <dt>Feld</dt>
+    <dd>Ein Feld oder alle Felder.</dd>
+    <dt>Werte</dt>
+    <dd><i>Typisiert</i> wandelt Zahlen und Booleans anhand des Feldtyps im Produkt um.
+      <i>Immer Text</i> entspricht Version 0.x, dort ist jeder Wert ein String.</dd>
+  </dl>
+
+  <h3>Ausgaben</h3>
+  <dl class="message-properties">
+    <dt>payload <span class="property-type">number | boolean | string</span></dt>
+    <dd>der neue Wert des Felds.</dd>
+    <dt>topic <span class="property-type">string</span></dt>
+    <dd>das MQTT-Topic, <code>dtck/&lt;Produkt&gt;/&lt;Gerät&gt;/&lt;FELD&gt;</code>.</dd>
+    <dt>deviceId <span class="property-type">string</span></dt>
+    <dd>die ID des Datacake-Geräts.</dd>
+    <dt>productSlug <span class="property-type">string</span></dt>
+    <dd>der Slug des Produkts des Geräts.</dd>
+    <dt>fieldName <span class="property-type">string</span></dt>
+    <dd>der Feld-Bezeichner, z. B. <code>TEMPERATURE</code>.</dd>
+    <dt>datacake <span class="property-type">object</span></dt>
+    <dd>Details für Anzeige und Routing: <code>deviceName</code>, <code>productName</code>,
+      <code>fieldLabel</code>, <code>unit</code> (sofern ermittelbar) und die IDs von oben.</dd>
+  </dl>
+
+  <h3>Details</h3>
+  <p>Alle Datacake-Nodes eines Accounts teilen sich eine MQTT-Verbindung. Der Status zeigt den
+    Verbindungszustand und den zuletzt empfangenen Wert.</p>
+</script>
+
+<script type="text/html" data-help-name="datacake-out">
+  <p>Schreibt Messwerte über den Datacake-MQTT-Broker auf Datacake-Geräte.</p>
+
+  <h3>Eingaben</h3>
+  <dl class="message-properties">
+    <dt>payload <span class="property-type">number | boolean | string | object</span></dt>
+    <dd>der zu schreibende Wert. Bei <i>Mehrere Felder aus msg.payload</i> ein Objekt wie
+      <code>{"TEMPERATURE": 21.5, "HUMIDITY": 48}</code>; jedes Feld wird als eigene Nachricht
+      veröffentlicht.</dd>
+    <dt class="optional">deviceId <span class="property-type">string</span></dt>
+    <dd>das Zielgerät, wenn als Ziel <i>Gerät aus msg.deviceId</i> gewählt ist.</dd>
+    <dt class="optional">productSlug <span class="property-type">string</span></dt>
+    <dd>das Produkt dieses Geräts. Optional, es wird über die Geräte-ID ermittelt.</dd>
+    <dt class="optional">fieldName <span class="property-type">string</span></dt>
+    <dd>der Ziel-Feld-Bezeichner, wenn <i>Feld aus msg.fieldName</i> gewählt ist.</dd>
+  </dl>
+
+  <h3>Details</h3>
+  <p>Felder, die es auf dem Gerät nicht gibt, werden mit einer Warnung übersprungen. Bezeichner in
+    Kleinbuchstaben wie <code>temperature</code> werden <code>TEMPERATURE</code> zugeordnet.</p>
+  <p>Kommen Gerät oder Feld aus der Nachricht, wird eine Nachricht, die direkt von einem
+    <code>datacake in</code>-Node stammt, nie auf Gerät und Feld zurückgeschrieben, von denen sie
+    gelesen wurde. Datacake würde den Wert erneut veröffentlichen und der Flow liefe endlos.</p>
+  <p>Fehler, z. B. bei getrennter Verbindung, lassen sich mit einem Catch-Node behandeln.</p>
+</script>

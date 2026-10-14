@@ -1,130 +1,345 @@
 <script type="text/javascript">
-  RED.nodes.registerType("datacake-configuration", {
-    category: "config",
-    color: "#f29d00",
-    defaults: {
-      apiKey: { value: "", required: true },
-      workspaceId: { value: "", required: true },
-      workspaceName: { value: "", required: true },
-    },
-    label: function() {
-      if (this.workspaceName) {
-        return `Workspace: ${this.workspaceName}`;
-      } else {
-        return "Invalid configuration";
+  (function () {
+    "use strict";
+
+    var CONFIG_TYPE = "datacake-configuration";
+    var NODE_TYPES = ["datacake-in", "datacake-out"];
+    var PASSWORD_PLACEHOLDER = "__PWRD__";
+    var NS = "node-red-contrib-datacake/datacake-configuration:datacake-configuration.";
+    var hasOwn = Object.prototype.hasOwnProperty;
+
+    function t(key, args) {
+      return RED._(NS + key, args);
+    }
+
+    /**
+     * Token to send with an editor request: one typed in this session and not deployed yet, or the
+     * plaintext key of a 0.x configuration. Otherwise the runtime uses the stored credentials.
+     */
+    function typedToken(configNode) {
+      if (!configNode) {
+        return undefined;
       }
-    },
-    getDevices: async function(config) {
-      if (!config.apiKey || !config.workspaceId) {
-        return;
+      var credentials = configNode.credentials;
+      if (credentials && credentials.apiToken && credentials.apiToken !== PASSWORD_PLACEHOLDER) {
+        return credentials.apiToken;
       }
-      return await fetch("https://api.datacake.co/graphql/", {
+      return configNode.apiKey || undefined;
+    }
+
+    /** POST to the admin endpoints of this module; the token never leaves the runtime. */
+    function api(path, configId, data, token) {
+      var body = $.extend(
+        { configId: configId, token: token || typedToken(configId && RED.nodes.node(configId)) },
+        data || {},
+      );
+      return $.ajax({
+        url: "datacake/" + path,
         method: "POST",
-        mode: "cors",
-        cache: "no-cache",
-        credentials: "same-origin",
-        headers: {
-          Authorization: "Token " + config.apiKey,
-          "Content-Type": "application/json",
-        },
-        redirect: "follow",
-        referrerPolicy: "no-referrer",
-        body: JSON.stringify({
-          query: `query getDevices($workspace: String!) {
-                    allDevices(inWorkspace: $workspace) {
-                        id
-                        verboseName
-                        product {
-                          id
-                          slug
-                          measurementFields {
-                            id
-                            fieldName
-                            verboseFieldName
-                          }
-                        }
-                    }
-                }`,
-          variables: {
-            workspace: config.workspaceId,
-          },
-        }),
-      })
-        .then((res) => res.json())
-        .then((res) => res.data.allDevices);
-    },
-    oneditprepare: () => {
-      const populateWorkspaces = () => {
-        var apiKey = $("#node-config-input-apiKey").val();
-        if (apiKey.length !== 40) {
+        contentType: "application/json",
+        dataType: "json",
+        data: JSON.stringify(body),
+        timeout: 30000,
+      });
+    }
+
+    function errorText(xhr) {
+      var error = xhr && xhr.responseJSON && xhr.responseJSON.error;
+      if (error === "no_token") {
+        return t("errors.noToken");
+      }
+      return error || (xhr && xhr.statusText) || "error";
+    }
+
+    // ---- Device names for the canvas labels -------------------------------------------------
+    // Labels are computed synchronously. A node whose device name is not known yet is queued; the
+    // queue is resolved in one request per configuration node and the canvas is redrawn. Names
+    // live only here, never in node properties, so loading a flow does not mark it as changed.
+
+    var deviceNames = {}; // deviceId -> { name, productName, productSlug, fields } | null (pending/failed)
+    var queue = {}; // configId -> { deviceId: true }
+    var flushTimer = null;
+    var BATCH_SIZE = 200;
+
+    function lookupDevice(configId, deviceId) {
+      if (!deviceId || deviceId === "+") {
+        return undefined;
+      }
+      if (hasOwn.call(deviceNames, deviceId)) {
+        return deviceNames[deviceId] || undefined;
+      }
+      if (configId) {
+        (queue[configId] = queue[configId] || {})[deviceId] = true;
+        if (!flushTimer) {
+          flushTimer = setTimeout(flushLookups, 250);
+        }
+      }
+      return undefined;
+    }
+
+    function rememberDevice(deviceId, info) {
+      if (deviceId && info) {
+        deviceNames[deviceId] = info;
+      }
+    }
+
+    function flushLookups() {
+      flushTimer = null;
+      var batches = queue;
+      queue = {};
+      Object.keys(batches).forEach(function (configId) {
+        var configNode = RED.nodes.node(configId);
+        var ids = Object.keys(batches[configId]).filter(function (id) {
+          return !hasOwn.call(deviceNames, id);
+        });
+        if (!configNode || ids.length === 0) {
           return;
         }
-        $.ajax({
-          method: "POST",
-          url: "https://api.datacake.co/graphql/",
-          contentType: "application/json",
-          headers: {
-            Authorization: "Token " + apiKey,
-          },
-          data: JSON.stringify({
-            query: `query {
-                    allWorkspaces {
-                        id
-                        name
-                    }
-                }`,
-          }),
-          success: (result) => {
-            //currentDeviceId
-            if (result && result.data && result.data.allWorkspaces) {
-              $("#node-config-input-workspaceSelect").empty();
-              $("#node-config-input-workspaceSelect").append(
-                $('<option value="">Please select</option>')
-              );
-              for (let i = 0; i < result.data.allWorkspaces.length; i++) {
-                $("#node-config-input-workspaceSelect").append(
-                  $(
-                    `<option ${result.data.allWorkspaces[i].id ===
-                      $("#node-config-input-workspaceId").val() &&
-                      'selected="selected"'} value="${
-                      result.data.allWorkspaces[i].id
-                    };${result.data.allWorkspaces[i].name}">${
-                      result.data.allWorkspaces[i].name
-                    }</option>`
-                  )
-                );
-              }
-            }
-          },
+        ids.forEach(function (id) {
+          deviceNames[id] = null;
         });
-      };
-      $("#node-config-input-apiKey").on("change", populateWorkspaces);
-      populateWorkspaces();
-
-      $("#node-config-input-workspaceSelect").on("change", (e) => {
-        const [id, name] = e.target.value.split(/;(.+)/);
-        $("#node-config-input-workspaceId").val(id);
-        $("#node-config-input-workspaceName").val(name);
+        for (var i = 0; i < ids.length; i += BATCH_SIZE) {
+          requestNames(configNode, ids.slice(i, i + BATCH_SIZE));
+        }
       });
-    },
-  });
+    }
+
+    function requestNames(configNode, ids) {
+      api("names", configNode.id, { deviceIds: ids, workspaceId: configNode.workspaceId })
+        .done(function (result) {
+          var devices = (result && result.devices) || {};
+          var found = Object.keys(devices);
+          found.forEach(function (id) {
+            deviceNames[id] = devices[id];
+          });
+          if (found.length > 0) {
+            redrawDatacakeNodes();
+          }
+        })
+        .fail(function () {
+          // Try again later, e.g. after the configuration node has been deployed.
+          setTimeout(function () {
+            ids.forEach(function (id) {
+              if (deviceNames[id] === null) {
+                delete deviceNames[id];
+              }
+            });
+          }, 60000);
+        });
+    }
+
+    function redrawDatacakeNodes() {
+      RED.nodes.eachNode(function (n) {
+        if (NODE_TYPES.indexOf(n.type) !== -1) {
+          n.dirty = true;
+        }
+      });
+      RED.view.redraw(true);
+    }
+
+    // ---- Migration of plaintext tokens from 0.x ----------------------------------------------
+
+    var migrationNoticeShown = false;
+
+    function legacyConfigNodes() {
+      var nodes = [];
+      RED.nodes.eachConfig(function (n) {
+        if (n.type === CONFIG_TYPE && n.apiKey) {
+          nodes.push(n);
+        }
+      });
+      return nodes;
+    }
+
+    function migrateToken(node) {
+      try {
+        node.credentials = node.credentials || {};
+        node.credentials.apiToken = node.apiKey;
+        node.apiKey = "";
+        node.changed = true;
+        node.dirty = true;
+        return true;
+      } catch (err) {
+        // Locked flows refuse changes; those keep working with the plaintext token.
+        return false;
+      }
+    }
+
+    function showMigrationNotice() {
+      var nodes = legacyConfigNodes();
+      if (migrationNoticeShown || nodes.length === 0) {
+        return;
+      }
+      migrationNoticeShown = true;
+      var notification = RED.notify(t("migration.notice", { count: nodes.length }), {
+        type: "warning",
+        fixed: true,
+        buttons: [
+          {
+            text: t("migration.later"),
+            click: function () {
+              notification.close();
+            },
+          },
+          {
+            text: t("migration.migrate"),
+            class: "primary",
+            click: function () {
+              var migrated = legacyConfigNodes().filter(migrateToken).length;
+              notification.close();
+              if (migrated > 0) {
+                RED.nodes.dirty(true);
+                RED.view.redraw(true);
+                RED.notify(t("migration.done"), { type: "success" });
+              }
+            },
+          },
+        ],
+      });
+    }
+
+    RED.events.on("nodes:add", function (n) {
+      if (n && n.type === CONFIG_TYPE && n.apiKey && !migrationNoticeShown) {
+        setTimeout(showMigrationNotice, 1000);
+      }
+    });
+
+    // ---- Node definition ---------------------------------------------------------------------
+
+    RED.nodes.registerType(CONFIG_TYPE, {
+      category: "config",
+      defaults: {
+        workspaceId: { value: "", required: true },
+        workspaceName: { value: "" },
+        // Plaintext token of 0.x. Kept so the editor does not drop it before it is migrated.
+        apiKey: { value: "" },
+      },
+      credentials: {
+        apiToken: { type: "password" },
+      },
+      label: function () {
+        if (this.workspaceName) {
+          return t("label.workspacePrefix") + ": " + this.workspaceName;
+        }
+        return this.workspaceId || t("label.invalid");
+      },
+      oneditprepare: function () {
+        var node = this;
+        var hasStoredToken = !!(node.credentials && node.credentials.has_apiToken);
+        var tokenInput = $("#node-config-input-apiToken");
+        var select = $("#node-config-datacake-workspace");
+        var message = $("#node-config-datacake-message");
+
+        if (node.apiKey) {
+          if (!hasStoredToken) {
+            tokenInput.val(node.apiKey);
+            $("#node-config-datacake-migrated").show();
+          }
+          $("#node-config-input-apiKey").val("");
+        }
+
+        function showMessage(text) {
+          message.text(text || "").toggle(!!text);
+        }
+
+        function currentToken() {
+          var value = tokenInput.val();
+          return value && value !== PASSWORD_PLACEHOLDER ? value : undefined;
+        }
+
+        function setOptions(workspaces) {
+          var current = $("#node-config-input-workspaceId").val();
+          select.empty().append($("<option>").val("").text(t("label.selectWorkspace")));
+          workspaces.forEach(function (ws) {
+            select.append($("<option>").val(ws.id).text(ws.name));
+          });
+          if (current && !workspaces.some(function (ws) { return ws.id === current; })) {
+            select.append(
+              $("<option>").val(current).text($("#node-config-input-workspaceName").val() || current),
+            );
+          }
+          if (!current && workspaces.length === 1) {
+            current = workspaces[0].id;
+          }
+          select.val(current || "").trigger("change");
+        }
+
+        function load() {
+          var token = currentToken();
+          if (!token && !hasStoredToken) {
+            showMessage(t("label.enterToken"));
+            return;
+          }
+          showMessage();
+          select.prop("disabled", true).empty().append($("<option>").text(t("label.loading")));
+          api("workspaces", node.id, {}, token)
+            .done(function (workspaces) {
+              setOptions(workspaces || []);
+            })
+            .fail(function (xhr) {
+              setOptions([]);
+              showMessage(t("errors.loadFailed", { error: errorText(xhr) }));
+            })
+            .always(function () {
+              select.prop("disabled", false);
+            });
+        }
+
+        select.on("change", function () {
+          var id = select.val() || "";
+          $("#node-config-input-workspaceId").val(id);
+          $("#node-config-input-workspaceName").val(id ? select.find("option:selected").text() : "");
+        });
+        tokenInput.on("change", load);
+        $("#node-config-datacake-reload").on("click", function (e) {
+          e.preventDefault();
+          load();
+        });
+
+        if (node.workspaceId) {
+          setOptions([]);
+        }
+        load();
+      },
+
+      // Shared with the datacake-in/-out editors (see datacake-mqtt.html).
+      datacake: {
+        api: api,
+        errorText: errorText,
+        lookupDevice: lookupDevice,
+        rememberDevice: rememberDevice,
+      },
+    });
+  })();
 </script>
 
-<script type="text/x-red" data-template-name="datacake-configuration">
-    <div class="form-row">
-        <label for="node-config-input-apiKey"><i class="icon-tag"></i> API Token</label>
-        <input type="text" id="node-config-input-apiKey" placeholder="API Token">
-    </div>
-    <input type="hidden" id="node-config-input-workspaceId">
-    <input type="hidden" id="node-config-input-workspaceName">
-    <div class="form-row">
-      <label for="node-config-input-workspaceName"><i class="icon-tag"></i> Workspace</label>
-      <select id="node-config-input-workspaceSelect">
-          <option value="">Please select</option>
-      </select>
+<script type="text/html" data-template-name="datacake-configuration">
+  <div class="form-row">
+    <label for="node-config-input-apiToken"
+      ><i class="fa fa-key"></i> <span data-i18n="datacake-configuration.label.apiToken"></span
+    ></label>
+    <input type="password" id="node-config-input-apiToken" style="width: 70%" />
   </div>
-</script>
-
-<script type="text/x-red" data-help-name="datacake-configuration">
-  <p>Configuration node for Datacake</p>
+  <div class="form-tips" id="node-config-datacake-migrated" style="display: none; margin-bottom: 12px">
+    <span data-i18n="datacake-configuration.tip.migrated"></span>
+  </div>
+  <div class="form-row">
+    <label for="node-config-datacake-workspace"
+      ><i class="fa fa-th-large"></i> <span data-i18n="datacake-configuration.label.workspace"></span
+    ></label>
+    <select id="node-config-datacake-workspace" style="width: calc(70% - 40px)"></select>
+    <button
+      type="button"
+      class="red-ui-button"
+      id="node-config-datacake-reload"
+      data-i18n="[title]datacake-configuration.label.reload"
+    >
+      <i class="fa fa-refresh"></i>
+    </button>
+  </div>
+  <div class="form-row" id="node-config-datacake-message" style="display: none; margin-left: 105px"></div>
+  <input type="hidden" id="node-config-input-workspaceId" />
+  <input type="hidden" id="node-config-input-workspaceName" />
+  <input type="hidden" id="node-config-input-apiKey" />
+  <div class="form-tips"><span data-i18n="datacake-configuration.tip.token"></span></div>
 </script>

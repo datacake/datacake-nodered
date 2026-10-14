@@ -1,241 +1,694 @@
 <script type="text/javascript">
-  const oneditprepare = (direction) => () => {
-    const populateDevices = async () => {
-      $("#node-input-deviceId_select, #node-input-fieldName_select")
-        .attr("disabled", "disabled")
-        .empty();
+  (function () {
+    "use strict";
 
-      const configuration = $("#node-input-datacakeConfiguration").val();
-      if (configuration) {
-        const config = RED.nodes.node(configuration);
-        this.devices = await config._def.getDevices(config);
+    var NS = "node-red-contrib-datacake/datacake-mqtt:datacake-mqtt.";
+    var ANY = "+";
+    var COLOR = "#F29D00";
 
-        const deviceIdField = $("#node-input-deviceId");
-        if (!deviceIdField.val() && this.devices[0]) {
-          deviceIdField.val(this.devices[0].id);
-          $("#node-input-productSlug").val(this.devices[0].product.slug);
+    function t(key, args) {
+      return RED._(NS + key, args);
+    }
+
+    /** Helpers shared by the configuration node (datacake-configuration.html). */
+    function shared() {
+      var def = RED.nodes.getType("datacake-configuration");
+      return (def && def.datacake) || null;
+    }
+
+    function shortId(id) {
+      return id && id.length > 8 ? id.slice(0, 8) + "…" : id || "";
+    }
+
+    // Same defaults as the runtime (src/lib/settings.ts): properties missing on 0.x nodes keep
+    // the old behaviour.
+    function inSettings(node) {
+      return {
+        source: node.source === "product" ? "product" : "device",
+        payloadType: node.payloadType === "auto" ? "auto" : "string",
+      };
+    }
+
+    function outSettings(node) {
+      var target =
+        node.target === "configured" || node.target === "msg"
+          ? node.target
+          : node.deviceId
+            ? "configured"
+            : "msg";
+      var fieldMode =
+        node.fieldMode === "fixed" || node.fieldMode === "msg" || node.fieldMode === "payload"
+          ? node.fieldMode
+          : node.fieldName && node.fieldName !== ANY
+            ? "fixed"
+            : "msg";
+      return { target: target, fieldMode: fieldMode };
+    }
+
+    // ---- Labels -----------------------------------------------------------------------------
+
+    function liveDevice(node) {
+      var helpers = shared();
+      return helpers ? helpers.lookupDevice(node.datacakeConfiguration, node.deviceId) : undefined;
+    }
+
+    function deviceText(node, info) {
+      return (info && info.name) || node.deviceName || shortId(node.deviceId);
+    }
+
+    function fieldText(node, info) {
+      var field = node.fieldName;
+      return (info && info.fields && info.fields[field]) || node.fieldLabel || field;
+    }
+
+    function inLabel() {
+      if (this.name) {
+        return this.name;
+      }
+      var allFields = !this.fieldName || this.fieldName === ANY;
+      if (inSettings(this).source === "product") {
+        var product = this.productName || this.productSlug;
+        if (!product) {
+          return t("label.paletteIn");
         }
-        populateFields();
+        return (
+          product +
+          " (" +
+          t("label.allDevices") +
+          ") › " +
+          (allFields ? t("label.allFields") : this.fieldLabel || this.fieldName)
+        );
+      }
+      if (!this.deviceId) {
+        return t("label.paletteIn");
+      }
+      var info = liveDevice(this);
+      return (
+        deviceText(this, info) + " › " + (allFields ? t("label.allFields") : fieldText(this, info))
+      );
+    }
 
-        $("#node-input-deviceId_select")
-          .empty()
-          .attr("disabled", false);
+    function outLabel() {
+      if (this.name) {
+        return this.name;
+      }
+      var mode = outSettings(this);
+      var info;
+      var device;
+      if (mode.target === "msg") {
+        device = "msg.deviceId";
+      } else if (this.deviceId) {
+        info = liveDevice(this);
+        device = deviceText(this, info);
+      } else {
+        return t("label.paletteOut");
+      }
+      var field;
+      if (mode.fieldMode === "msg") {
+        field = "msg.fieldName";
+      } else if (mode.fieldMode === "payload") {
+        field = t("label.payloadFields");
+      } else {
+        field = fieldText(this, info);
+      }
+      return device + " › " + field;
+    }
 
-        if (direction === "out") {
-          $("#node-input-deviceId_select").append(
-            $("<option/>")
-              .val("")
-              .text("Pass deviceId in msg object")
-              .attr("selected", "" === deviceIdField.val() ? "selected" : false)
-          );
-        }
+    function labelStyle() {
+      return this.name ? "node_label_italic" : "";
+    }
 
-        for (let j = 0; j < this.devices.length; j++) {
-          $("#node-input-deviceId_select").append(
-            $("<option/>")
-              .val(this.devices[j].id)
-              .text(this.devices[j].verboseName)
-              .attr(
-                "selected",
-                this.devices[j].id === deviceIdField.val() ? "selected" : false
-              )
-          );
+    // ---- Edit dialog ------------------------------------------------------------------------
+
+    function prepareDialog(node, kind) {
+      var helpers = shared();
+      var $config = $("#node-input-datacakeConfiguration");
+      var $message = $("#node-input-datacake-message");
+      var $fieldSelect = $("#node-input-datacake-field");
+      var $fieldText = $("#node-input-datacake-field-text");
+      var $product = $("#node-input-datacake-product");
+      var $selected = $("#node-input-datacake-selected");
+      var fields = [];
+      var products = [];
+      var searchRequest = null;
+
+      if (kind === "in") {
+        var inMode = inSettings(node);
+        $("#node-input-source").val(inMode.source);
+        $("#node-input-payloadType").val(inMode.payloadType);
+      } else {
+        var outMode = outSettings(node);
+        $("#node-input-target").val(outMode.target);
+        $("#node-input-fieldMode").val(outMode.fieldMode);
+        if (outMode.target === "msg" && outMode.fieldMode === "fixed") {
+          $fieldText.val(node.fieldName || "");
         }
       }
-    };
-    const populateFields = () => {
-      const device = this.devices.find(
-        (v) => v.id === $("#node-input-deviceId").val()
-      );
-      $("#node-input-fieldName_select").empty();
-      if (device) {
-        const fieldNameField = $("#node-input-fieldName");
-        if (!fieldNameField.val() && direction === "in") {
-          fieldNameField.val("+");
+
+      function configNode() {
+        var id = $config.val();
+        return id && id !== "_ADD_" ? RED.nodes.node(id) : null;
+      }
+
+      function showMessage(text) {
+        $message.text(text || "").toggle(!!text);
+      }
+
+      function request(path, data) {
+        var cfg = configNode();
+        return helpers.api(
+          path,
+          cfg.id,
+          $.extend({ workspaceId: cfg.workspaceId }, data || {}),
+        );
+      }
+
+      function failed(xhr) {
+        showMessage(t("label.loadFailed", { error: helpers.errorText(xhr) }));
+      }
+
+      function source() {
+        return kind === "in" ? $("#node-input-source").val() : "device";
+      }
+
+      function target() {
+        return kind === "out" ? $("#node-input-target").val() : "configured";
+      }
+
+      function fieldMode() {
+        return kind === "out" ? $("#node-input-fieldMode").val() : "fixed";
+      }
+
+      // -- Visibility --
+
+      function updateRows() {
+        var usesDevice = source() === "device" && target() === "configured";
+        $(".datacake-row-device").toggle(usesDevice);
+        $(".datacake-row-product").toggle(kind === "in" && source() === "product");
+        var fixed = fieldMode() === "fixed";
+        $(".datacake-row-field").toggle(fixed && target() === "configured");
+        $(".datacake-row-field-text").toggle(fixed && target() === "msg");
+        $(".datacake-tip-dynamic").toggle(target() === "msg" || !fixed);
+        $(".datacake-tip-payload").toggle(fieldMode() === "payload");
+      }
+
+      // -- Fields --
+
+      function renderFields() {
+        var current = $("#node-input-fieldName").val();
+        $fieldSelect.empty();
+        if (kind === "in") {
+          $fieldSelect.append($("<option>").val(ANY).text(t("label.allFields")));
+          $fieldSelect.append($("<option disabled>").text("──────────"));
+        } else {
+          $fieldSelect.append($("<option>").val("").text(t("label.selectField")));
         }
-        $("#node-input-fieldName_select")
-          .append(
-            $("<option/>")
-              .val("+")
-              .text("All Measurements")
-              .attr(
-                "selected",
-                "+" === fieldNameField.val() ? "selected" : false
-              )
-          )
-          .append($("<option disabled>──────────</option>"));
-        for (let k = 0; k < device.product.measurementFields.length; k++) {
-          $("#node-input-fieldName_select").append(
-            $("<option/>")
-              .val(device.product.measurementFields[k].fieldName)
-              .text(device.product.measurementFields[k].verboseFieldName)
-              .attr(
-                "selected",
-                device.product.measurementFields[k].fieldName ===
-                  fieldNameField.val()
-                  ? "selected"
-                  : false
-              )
+        fields.forEach(function (f) {
+          var text = f.label && f.label !== f.fieldName ? f.label + " (" + f.fieldName + ")" : f.fieldName;
+          $fieldSelect.append($("<option>").val(f.fieldName).text(text));
+        });
+        var known = fields.some(function (f) {
+          return f.fieldName === current;
+        });
+        if (current && current !== ANY && !known) {
+          // Keep the saved field even if it cannot be loaded right now.
+          $fieldSelect.append(
+            $("<option>").val(current).text($("#node-input-fieldLabel").val() || current),
           );
         }
-        $("#node-input-fieldName_select").attr("disabled", false);
+        $fieldSelect.val(current || (kind === "in" ? ANY : ""));
+        $fieldSelect.trigger("change");
       }
+
+      $fieldSelect.on("change", function () {
+        var value = $fieldSelect.val() || "";
+        if (fieldMode() === "fixed" && target() === "configured") {
+          var field = fields.filter(function (f) {
+            return f.fieldName === value;
+          })[0];
+          $("#node-input-fieldName").val(value);
+          if (field) {
+            $("#node-input-fieldLabel").val(field.label);
+          } else if (value === ANY || value === "") {
+            $("#node-input-fieldLabel").val("");
+          }
+        }
+      });
+
+      function loadDeviceFields(deviceId) {
+        fields = [];
+        renderFields();
+        if (!deviceId || !configNode()) {
+          return;
+        }
+        request("device", { deviceId: deviceId })
+          .done(function (device) {
+            if ($("#node-input-deviceId").val() !== deviceId) {
+              return;
+            }
+            fields = device.product.fields || [];
+            // Refresh the snapshots, the device may have been renamed in Datacake.
+            $("#node-input-deviceName").val(device.name);
+            $("#node-input-productSlug").val(device.product.slug);
+            $("#node-input-productName").val(device.product.name);
+            $selected.text(device.name + " · " + device.product.name);
+            helpers.rememberDevice(device.id, {
+              name: device.name,
+              productName: device.product.name,
+              productSlug: device.product.slug,
+              fields: fields.reduce(function (map, f) {
+                map[f.fieldName] = f.label;
+                return map;
+              }, {}),
+            });
+            renderFields();
+          })
+          .fail(failed);
+      }
+
+      // -- Device picker --
+
+      var $list = $("<div>")
+        .css({ width: "100%", height: "100%" })
+        .appendTo("#node-input-datacake-devices")
+        .treeList({ autoSelect: false });
+
+      $list.on("treelistselect", function (e, item) {
+        if (!item || !item.device) {
+          return;
+        }
+        var device = item.device;
+        var changed = $("#node-input-deviceId").val() !== device.id;
+        $("#node-input-deviceId").val(device.id);
+        $("#node-input-deviceName").val(device.name);
+        $("#node-input-productSlug").val(device.product.slug);
+        $("#node-input-productName").val(device.product.name);
+        $selected.text(device.name + " · " + device.product.name);
+        if (changed) {
+          $("#node-input-fieldName").val(kind === "in" ? ANY : "");
+          $("#node-input-fieldLabel").val("");
+        }
+        loadDeviceFields(device.id);
+      });
+
+      var $search = $("#node-input-datacake-search").searchBox({
+        style: "compact",
+        delay: 300,
+        change: function () {
+          searchDevices($(this).val().trim());
+        },
+      });
+
+      function searchDevices(text) {
+        if (!configNode()) {
+          $list.treeList("data", []);
+          return;
+        }
+        if (searchRequest) {
+          searchRequest.abort();
+        }
+        $search.searchBox("count", "");
+        var currentId = $("#node-input-deviceId").val();
+        searchRequest = request("devices", { search: text })
+          .done(function (result) {
+            var devices = result.devices || [];
+            $list.treeList(
+              "data",
+              devices.map(function (d) {
+                return {
+                  label: d.name,
+                  sublabel: d.product.name,
+                  icon: "fa fa-microchip",
+                  device: d,
+                  selected: d.id === currentId,
+                };
+              }),
+            );
+            if (devices.length === 0) {
+              $search.searchBox("count", t("label.noDevicesFound"));
+            } else if (result.total > devices.length) {
+              $search.searchBox("count", devices.length + " / " + result.total);
+            } else {
+              $search.searchBox("count", String(devices.length));
+            }
+          })
+          .fail(function (xhr) {
+            if (xhr.statusText !== "abort") {
+              failed(xhr);
+            }
+          });
+      }
+
+      // -- Products (datacake-in, all devices of a product) --
+
+      function renderProducts() {
+        var current = $("#node-input-productSlug").val();
+        $product.empty().append($("<option>").val("").text(t("label.selectProduct")));
+        products.forEach(function (p) {
+          $product.append($("<option>").val(p.slug).text(p.name));
+        });
+        var known = products.some(function (p) {
+          return p.slug === current;
+        });
+        if (current && !known) {
+          $product.append(
+            $("<option>").val(current).text($("#node-input-productName").val() || current),
+          );
+        }
+        $product.val(current || "");
+      }
+
+      function selectProduct(slug) {
+        var product = products.filter(function (p) {
+          return p.slug === slug;
+        })[0];
+        $("#node-input-productSlug").val(slug || "");
+        if (product) {
+          $("#node-input-productName").val(product.name);
+          fields = product.fields || [];
+        } else {
+          fields = [];
+        }
+        renderFields();
+      }
+
+      $product.on("change", function () {
+        var slug = $product.val();
+        if (slug !== $("#node-input-productSlug").val()) {
+          $("#node-input-fieldName").val(ANY);
+          $("#node-input-fieldLabel").val("");
+        }
+        selectProduct(slug);
+      });
+
+      function loadProducts() {
+        if (!configNode()) {
+          return;
+        }
+        request("products")
+          .done(function (list) {
+            products = list || [];
+            renderProducts();
+            selectProduct($("#node-input-productSlug").val());
+          })
+          .fail(failed);
+      }
+
+      // -- Wiring --
+
+      function reload() {
+        showMessage();
+        if (!configNode()) {
+          showMessage(t("label.selectConfig"));
+          $list.treeList("data", []);
+          return;
+        }
+        if (source() === "product") {
+          loadProducts();
+        } else if (target() === "configured") {
+          searchDevices(($search.val() || "").trim());
+          loadDeviceFields($("#node-input-deviceId").val());
+        }
+      }
+
+      var deviceName = $("#node-input-deviceName").val();
+      var info = liveDevice(node);
+      $selected.text(
+        node.deviceId
+          ? ((info && info.name) || deviceName || node.deviceId) +
+              (node.productName ? " · " + node.productName : "")
+          : t("label.noDevice"),
+      );
+
+      $config.on("change", reload);
+      $("#node-input-source, #node-input-target, #node-input-fieldMode").on("change", function () {
+        updateRows();
+        reload();
+      });
+      updateRows();
+      renderFields();
+      reload();
+    }
+
+    function saveDialog(node, kind) {
+      if (kind === "in") {
+        if ($("#node-input-source").val() === "product") {
+          $("#node-input-deviceId").val("");
+          $("#node-input-deviceName").val("");
+        }
+        return;
+      }
+      var target = $("#node-input-target").val();
+      var fieldMode = $("#node-input-fieldMode").val();
+      if (target === "msg") {
+        $("#node-input-deviceId").val("");
+        $("#node-input-deviceName").val("");
+        $("#node-input-productSlug").val("");
+        $("#node-input-productName").val("");
+      }
+      if (fieldMode !== "fixed") {
+        $("#node-input-fieldName").val("");
+        $("#node-input-fieldLabel").val("");
+      } else if (target === "msg") {
+        $("#node-input-fieldName").val($("#node-input-datacake-field-text").val().trim());
+        $("#node-input-fieldLabel").val("");
+      }
+    }
+
+    var commonDefaults = {
+      name: { value: "" },
+      datacakeConfiguration: { value: "", type: "datacake-configuration", required: true },
+      productSlug: { value: "" },
+      deviceId: { value: "" },
+      fieldName: { value: "" },
+      // Snapshots for the label, refreshed whenever the dialog is saved.
+      deviceName: { value: "" },
+      fieldLabel: { value: "" },
+      productName: { value: "" },
     };
 
-    $("#node-input-datacakeConfiguration").on("change", () => {
-      populateDevices();
-    });
-    $("#node-input-deviceId_select").on("change", (e) => {
-      $("#node-input-deviceId").val(e.target.value);
-      $("#node-input-productSlug").val(
-        this.devices.find((d) => d.id === e.target.value).product.slug
-      );
-      $("#node-input-fieldName").val("+");
-      populateFields();
-    });
-    $("#node-input-fieldName_select").on("change", (e) => {
-      $("#node-input-fieldName").val(e.target.value);
-    });
-    populateDevices();
-  };
-
-  RED.nodes.registerType("datacake-in", {
-    category: "datacake",
-    color: "#F29D00",
-    defaults: {
-      name: { value: "" },
-      datacakeConfiguration: {
-        value: "",
-        type: "datacake-configuration",
-        required: true,
+    RED.nodes.registerType("datacake-in", {
+      category: "datacake",
+      color: COLOR,
+      defaults: $.extend({}, commonDefaults, {
+        source: { value: "device" },
+        payloadType: { value: "auto" },
+        fieldName: { value: ANY },
+        productSlug: {
+          value: "",
+          validate: function (v) {
+            return !!v;
+          },
+        },
+        deviceId: {
+          value: "",
+          validate: function (v) {
+            return inSettings(this).source === "product" || !!v;
+          },
+        },
+      }),
+      inputs: 0,
+      outputs: 1,
+      icon: "datacake.svg",
+      paletteLabel: function () {
+        return t("label.paletteIn");
       },
-      deviceId: { value: "" },
-      fieldName: { value: "" },
-      productSlug: { value: "" },
-    },
-    outputs: 1,
-    icon: "datacake.svg",
-    label: () => {
-      return this.name || "datacake-in";
-    },
-    oneditprepare: oneditprepare("in"),
-  });
-
-  RED.nodes.registerType("datacake-out", {
-    category: "datacake",
-    color: "#F29D00",
-    defaults: {
-      name: { value: "" },
-      datacakeConfiguration: {
-        value: "",
-        type: "datacake-configuration",
-        required: true,
+      label: inLabel,
+      labelStyle: labelStyle,
+      outputLabels: function () {
+        return inLabel.call(this);
       },
-      deviceId: { value: "" },
-      fieldName: { value: "" },
-      productSlug: { value: "" },
-    },
-    inputs: 1,
-    icon: "datacake.svg",
-    label: () => {
-      return this.name || "datacake-out";
-    },
-    oneditprepare: oneditprepare("out"),
-  });
+      oneditprepare: function () {
+        prepareDialog(this, "in");
+      },
+      oneditsave: function () {
+        saveDialog(this, "in");
+      },
+    });
+
+    RED.nodes.registerType("datacake-out", {
+      category: "datacake",
+      color: COLOR,
+      align: "right",
+      defaults: $.extend({}, commonDefaults, {
+        target: { value: "configured" },
+        fieldMode: { value: "fixed" },
+        deviceId: {
+          value: "",
+          validate: function (v) {
+            return outSettings(this).target === "msg" || !!v;
+          },
+        },
+        fieldName: {
+          value: "",
+          validate: function (v) {
+            return outSettings(this).fieldMode !== "fixed" || (!!v && v !== ANY);
+          },
+        },
+      }),
+      inputs: 1,
+      outputs: 0,
+      icon: "datacake.svg",
+      paletteLabel: function () {
+        return t("label.paletteOut");
+      },
+      label: outLabel,
+      labelStyle: labelStyle,
+      inputLabels: function () {
+        return outLabel.call(this);
+      },
+      oneditprepare: function () {
+        prepareDialog(this, "out");
+      },
+      oneditsave: function () {
+        saveDialog(this, "out");
+      },
+    });
+  })();
 </script>
 
-<script type="text/x-red" data-template-name="datacake-in">
-    <div class="form-row">
-        <label for="node-input-name"><i class="icon-tag"></i> Name</label>
-        <input type="text" id="node-input-name" placeholder="Name">
-    </div>
-
-    <div class="form-row">
-      <label for="node-input-datacakeConfiguration"><i class="icon-tag"></i> Configuration</label>
-      <input type="text" id="node-input-datacakeConfiguration" placeholder="Datacake Configuration">
-    </div>
-
-    <div class="form-row">
-      <label for="node-input-deviceId"><i class="icon-tag"></i> Device</label>
-      <input type="hidden" id="node-input-productSlug">
-      <input type="hidden" id="node-input-deviceId">
-      <select id="node-input-deviceId_select">
-          <option value=""></option>
-      </select>
-  </div>
-
+<script type="text/html" data-template-name="datacake-in">
   <div class="form-row">
-      <label for="node-input-fieldName"><i class="icon-tag"></i> Field</label>
-      <input type="hidden" id="node-input-fieldName">
-      <select id="node-input-fieldName_select">
-          <option value=""></option>
-      </select>
+    <label for="node-input-datacakeConfiguration"
+      ><i class="fa fa-user"></i> <span data-i18n="datacake-mqtt.label.configuration"></span
+    ></label>
+    <input type="text" id="node-input-datacakeConfiguration" />
   </div>
-</script>
-
-<script type="text/x-red" data-help-name="datacake-in">
-  <p>Subscribes to measurements from Datacake devices</p>
-  <h3>Outputs</h3>
-     <ol class="node-ports">
-         <li>Standard output
-             <dl class="message-properties">
-                 <dt>payload <span class="property-type">string</span></dt>
-                 <dd>the measurement.</dd>
-
-                 <dt>deviceId <span class="property-type">string</span></dt>
-                 <dd>the ID of the Datacake device.</dd>
-                 <dt>productSlug <span class="property-type">string</span></dt>
-                 <dd>the slug of the device's product.</dd>
-                 <dt>fieldName <span class="property-type">string</span></dt>
-                 <dd>the field name.</dd>
-             </dl>
-         </li>
-     </ol>
-</script>
-
-<script type="text/x-red" data-template-name="datacake-out">
-    <div class="form-row">
-        <label for="node-input-name"><i class="icon-tag"></i> Name</label>
-        <input type="text" id="node-input-name" placeholder="Name">
-    </div>
-
-    <div class="form-row">
-      <label for="node-input-datacakeConfiguration"><i class="icon-tag"></i> Configuration</label>
-      <input type="text" id="node-input-datacakeConfiguration" placeholder="Datacake Configuration">
-    </div>
-
-    <div class="form-row">
-      <label for="node-input-deviceId"><i class="icon-tag"></i> Device</label>
-      <input type="hidden" id="node-input-productSlug">
-      <input type="hidden" id="node-input-deviceId">
-      <select id="node-input-deviceId_select">
-          <option value=""></option>
-      </select>
-  </div>
-
   <div class="form-row">
-      <label for="node-input-fieldName"><i class="icon-tag"></i> Field</label>
-      <input type="hidden" id="node-input-fieldName">
-      <select id="node-input-fieldName_select">
-          <option value=""></option>
-      </select>
+    <label for="node-input-source"
+      ><i class="fa fa-sitemap"></i> <span data-i18n="datacake-mqtt.label.source"></span
+    ></label>
+    <select id="node-input-source" style="width: 70%">
+      <option value="device" data-i18n="datacake-mqtt.label.sourceDevice"></option>
+      <option value="product" data-i18n="datacake-mqtt.label.sourceProduct"></option>
+    </select>
   </div>
+  <div class="form-row datacake-row-device">
+    <label><i class="fa fa-microchip"></i> <span data-i18n="datacake-mqtt.label.device"></span></label>
+    <span id="node-input-datacake-selected" style="font-weight: bold"></span>
+  </div>
+  <div class="form-row datacake-row-device">
+    <div style="display: inline-block; width: 100%; text-align: right">
+      <input
+        type="text"
+        id="node-input-datacake-search"
+        data-i18n="[placeholder]datacake-mqtt.label.searchDevices"
+      />
+    </div>
+    <div
+      id="node-input-datacake-devices"
+      style="height: 180px; margin-top: 4px; border: 1px solid var(--red-ui-secondary-border-color, #ccc)"
+    ></div>
+  </div>
+  <div class="form-row datacake-row-product">
+    <label for="node-input-datacake-product"
+      ><i class="fa fa-cube"></i> <span data-i18n="datacake-mqtt.label.product"></span
+    ></label>
+    <select id="node-input-datacake-product" style="width: 70%"></select>
+  </div>
+  <div class="form-row datacake-row-field">
+    <label for="node-input-datacake-field"
+      ><i class="fa fa-tag"></i> <span data-i18n="datacake-mqtt.label.field"></span
+    ></label>
+    <select id="node-input-datacake-field" style="width: 70%"></select>
+  </div>
+  <div class="form-row">
+    <label for="node-input-payloadType"
+      ><i class="fa fa-sign-out"></i> <span data-i18n="datacake-mqtt.label.payloadType"></span
+    ></label>
+    <select id="node-input-payloadType" style="width: 70%">
+      <option value="auto" data-i18n="datacake-mqtt.label.payloadAuto"></option>
+      <option value="string" data-i18n="datacake-mqtt.label.payloadString"></option>
+    </select>
+  </div>
+  <div class="form-row">
+    <label for="node-input-name"
+      ><i class="fa fa-tag"></i> <span data-i18n="datacake-mqtt.label.name"></span
+    ></label>
+    <input type="text" id="node-input-name" data-i18n="[placeholder]datacake-mqtt.label.name" />
+  </div>
+  <div class="form-tips" id="node-input-datacake-message" style="display: none"></div>
+  <div class="form-tips"><span data-i18n="[html]datacake-mqtt.tip.inMessage"></span></div>
+  <input type="hidden" id="node-input-deviceId" />
+  <input type="hidden" id="node-input-productSlug" />
+  <input type="hidden" id="node-input-fieldName" />
+  <input type="hidden" id="node-input-deviceName" />
+  <input type="hidden" id="node-input-productName" />
+  <input type="hidden" id="node-input-fieldLabel" />
 </script>
 
-<script type="text/x-red" data-help-name="datacake-out">
-  <p>Publishes measurements to Datacake devices</p>
-
-  <h3>Inputs</h3>
-    <dl class="message-properties">
-        <dt>payload
-            <span class="property-type">string</span>
-        </dt>
-        <dd> the measurement to publish. </dd>
-        <dt class="optional">productSlug <span class="property-type">string</span></dt>
-        <dd> the product slug of the Datacake device to publish to.</dd>
-        <dt class="optional">deviceId <span class="property-type">string</span></dt>
-        <dd> the ID of the Datacake device to publish to.</dd>
-        <dt class="optional">fieldName <span class="property-type">string</span></dt>
-        <dd> the name of the field to publish to.</dd>
-    </dl>
+<script type="text/html" data-template-name="datacake-out">
+  <div class="form-row">
+    <label for="node-input-datacakeConfiguration"
+      ><i class="fa fa-user"></i> <span data-i18n="datacake-mqtt.label.configuration"></span
+    ></label>
+    <input type="text" id="node-input-datacakeConfiguration" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-target"
+      ><i class="fa fa-crosshairs"></i> <span data-i18n="datacake-mqtt.label.target"></span
+    ></label>
+    <select id="node-input-target" style="width: 70%">
+      <option value="configured" data-i18n="datacake-mqtt.label.targetConfigured"></option>
+      <option value="msg" data-i18n="datacake-mqtt.label.targetMsg"></option>
+    </select>
+  </div>
+  <div class="form-row datacake-row-device">
+    <label><i class="fa fa-microchip"></i> <span data-i18n="datacake-mqtt.label.device"></span></label>
+    <span id="node-input-datacake-selected" style="font-weight: bold"></span>
+  </div>
+  <div class="form-row datacake-row-device">
+    <div style="display: inline-block; width: 100%; text-align: right">
+      <input
+        type="text"
+        id="node-input-datacake-search"
+        data-i18n="[placeholder]datacake-mqtt.label.searchDevices"
+      />
+    </div>
+    <div
+      id="node-input-datacake-devices"
+      style="height: 180px; margin-top: 4px; border: 1px solid var(--red-ui-secondary-border-color, #ccc)"
+    ></div>
+  </div>
+  <div class="form-row">
+    <label for="node-input-fieldMode"
+      ><i class="fa fa-list"></i> <span data-i18n="datacake-mqtt.label.fieldMode"></span
+    ></label>
+    <select id="node-input-fieldMode" style="width: 70%">
+      <option value="fixed" data-i18n="datacake-mqtt.label.fieldFixed"></option>
+      <option value="msg" data-i18n="datacake-mqtt.label.fieldMsg"></option>
+      <option value="payload" data-i18n="datacake-mqtt.label.fieldPayload"></option>
+    </select>
+  </div>
+  <div class="form-row datacake-row-field">
+    <label for="node-input-datacake-field"
+      ><i class="fa fa-tag"></i> <span data-i18n="datacake-mqtt.label.field"></span
+    ></label>
+    <select id="node-input-datacake-field" style="width: 70%"></select>
+  </div>
+  <div class="form-row datacake-row-field-text">
+    <label for="node-input-datacake-field-text"
+      ><i class="fa fa-tag"></i> <span data-i18n="datacake-mqtt.label.fieldIdentifier"></span
+    ></label>
+    <input type="text" id="node-input-datacake-field-text" placeholder="TEMPERATURE" style="width: 70%" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-name"
+      ><i class="fa fa-tag"></i> <span data-i18n="datacake-mqtt.label.name"></span
+    ></label>
+    <input type="text" id="node-input-name" data-i18n="[placeholder]datacake-mqtt.label.name" />
+  </div>
+  <div class="form-tips" id="node-input-datacake-message" style="display: none"></div>
+  <div class="form-tips datacake-tip-payload" style="margin-bottom: 8px">
+    <span data-i18n="[html]datacake-mqtt.tip.outPayload"></span>
+  </div>
+  <div class="form-tips datacake-tip-dynamic">
+    <span data-i18n="datacake-mqtt.tip.outDynamic"></span>
+  </div>
+  <input type="hidden" id="node-input-deviceId" />
+  <input type="hidden" id="node-input-productSlug" />
+  <input type="hidden" id="node-input-fieldName" />
+  <input type="hidden" id="node-input-deviceName" />
+  <input type="hidden" id="node-input-productName" />
+  <input type="hidden" id="node-input-fieldLabel" />
 </script>
